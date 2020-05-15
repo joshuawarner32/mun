@@ -90,23 +90,22 @@ impl ObjectFile {
 }
 
 /// A struct that can be used to build an LLVM `Module`.
-pub struct ModuleBuilder<'a, 'ink, D: hir::HirDatabase> {
-    context: &'ink Context,
-    db: &'a CodegenContext<D>,
+pub struct ModuleBuilder<'ink, D: hir::HirDatabase> {
+    db: &'ink CodegenContext<D>,
     file_id: FileId,
     _target: inkwell::targets::Target,
     target_machine: inkwell::targets::TargetMachine,
     assembly_module: Arc<inkwell::module::Module<'ink>>,
 }
 
-impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
+impl<'ink, D: hir::HirDatabase> ModuleBuilder<'ink, D> {
     /// Constructs module for the given `hir::FileId` at the specified output file location.
-    pub fn new(context: &'ink Context, db: &'a CodegenContext<D>, file_id: FileId) -> Result<Self, failure::Error> {
+    pub fn new(db: &'ink CodegenContext<D>, file_id: FileId) -> Result<Self, failure::Error> {
         let target = db.target();
 
         // Construct a module for the assembly
         let assembly_module = Arc::new(
-            context.create_module(db.hir_db().file_relative_path(file_id).as_str()),
+            db.context.create_module(db.hir_db().file_relative_path(file_id).as_str()),
         );
 
         // Initialize the x86 target
@@ -131,7 +130,6 @@ impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
             .ok_or(CodeGenerationError::CouldNotCreateTargetMachine)?;
 
         Ok(Self {
-            context,
             db,
             file_id,
             _target: llvm_target,
@@ -142,8 +140,8 @@ impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
 
     /// Constructs an object file.
     pub fn build(self) -> Result<ObjectFile, failure::Error> {
-        let group_ir = self.db.group_ir(self.context, self.file_id);
-        let file = self.db.file_ir(self.context, self.file_id);
+        let group_ir = self.db.group_ir(self.file_id);
+        let file = self.db.file_ir(self.file_id);
 
         // Clone the LLVM modules so that we can modify it without modifying the cached value.
         self.assembly_module
@@ -156,7 +154,6 @@ impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
 
         // Generate the `get_info` method.
         symbols::gen_reflection_ir(
-            self.context,
             self.db,
             &self.assembly_module,
             &file.api,

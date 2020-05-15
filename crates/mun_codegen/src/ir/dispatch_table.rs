@@ -75,7 +75,7 @@ impl<'ink> DispatchTable<'ink> {
     /// struct
     pub fn gen_function_lookup<D: hir::HirDatabase>(
         &self,
-        db: &CodegenContext<D>,
+        db: &'ink CodegenContext<D>,
         table_ref: Option<inkwell::values::GlobalValue<'ink>>,
         builder: &inkwell::builder::Builder<'ink>,
         function: hir::Function,
@@ -150,9 +150,7 @@ impl<'ink> DispatchTable<'ink> {
 
 /// A struct that can be used to build the dispatch table from HIR.
 pub(crate) struct DispatchTableBuilder<'ink, 'a, D: hir::HirDatabase> {
-    db: &'a CodegenContext<D>,
-    // The LLVM context in which all LLVM types live
-    context: &'ink Context,
+    db: &'ink CodegenContext<D>,
     // The module in which all values live
     module: &'a Module<'ink>,
     // The target for which to create the dispatch table
@@ -177,21 +175,19 @@ struct TypedDispatchableFunction<'ink> {
 impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
     /// Creates a new builder that can generate a dispatch function.
     pub fn new(
-        context: &'ink Context,
-        db: &'a CodegenContext<D>,
+        db: &'ink CodegenContext<D>,
         module: &'a Module<'ink>,
         intrinsics: &BTreeMap<FunctionPrototype, FunctionType<'ink>>,
     ) -> Self {
         let mut table = DispatchTableBuilder {
             db,
-            context,
             module,
             target: db.target_data(),
             function_to_idx: Default::default(),
             prototype_to_idx: Default::default(),
             entries: Default::default(),
             table_ref: None,
-            table_type: context.opaque_struct_type("DispatchTable"),
+            table_type: db.context.opaque_struct_type("DispatchTable"),
         };
 
         if !intrinsics.is_empty() {
@@ -254,7 +250,6 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
             let ir_type = self
                 .db
                 .type_ir(
-                    &self.context,
                     hir_type,
                     CodeGenParams {
                         make_marshallable: false,
@@ -264,10 +259,10 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
             let arg_types = sig
                 .params()
                 .iter()
-                .map(|arg| self.db.type_info(&self.context, arg.clone()))
+                .map(|arg| self.db.type_info(arg.clone()))
                 .collect();
             let ret_type = if !sig.ret().is_empty() {
-                Some(self.db.type_info(&self.context, sig.ret().clone()))
+                Some(self.db.type_info(sig.ret().clone()))
             } else {
                 None
             };
@@ -326,7 +321,6 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
                         Some(f) if f.is_extern(self.db.hir_db()) => function_type.const_null(),
                         // Case mun function: Get the function location as the initializer
                         Some(f) => function::gen_signature(
-                            self.context,
                             self.db,
                             f,
                             self.module,
@@ -347,7 +341,7 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
         let table_type = self.table_ref.map(|_| self.table_type);
 
         DispatchTable {
-            context: self.context,
+            context: &self.db.context,
             target: self.target,
             function_to_idx: self.function_to_idx,
             prototype_to_idx: self.prototype_to_idx,

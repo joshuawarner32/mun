@@ -743,13 +743,12 @@ fn incremental_compilation() {
         }
         "#,
     );
-    let context = crate::Context::create();
     db.set_optimization_lvl(OptimizationLevel::Default);
     db.set_target(Target::host_target().unwrap());
 
     {
         let events = log_executed(&db, || {
-            db.file_ir(&context, file_id);
+            db.file_ir(file_id);
         });
         assert!(
             format!("{:?}", events).contains("group_ir"),
@@ -763,7 +762,7 @@ fn incremental_compilation() {
 
     {
         let events = log_executed(&db, || {
-            db.file_ir(&context, file_id);
+            db.file_ir(file_id);
         });
         println!("events: {:?}", events);
         assert!(
@@ -856,10 +855,8 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     drop(sink);
     let messages = messages.into_inner();
 
-    let context = crate::Context::create();
-
     let module_builder =
-        ModuleBuilder::new(&context, &db, file_id).expect("Failed to initialize module builder");
+        ModuleBuilder::new(&db, file_id).expect("Failed to initialize module builder");
 
     // The thread is named after the test case, so we can use it to name our snapshots.
     let thread_name = std::thread::current()
@@ -872,7 +869,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.group_ir(&context, file_id)
+            db.group_ir(file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()
@@ -884,7 +881,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.file_ir(&context, file_id)
+            db.file_ir(file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()

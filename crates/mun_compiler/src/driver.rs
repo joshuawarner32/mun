@@ -23,7 +23,6 @@ pub const WORKSPACE: SourceRootId = SourceRootId(0);
 
 #[derive(Debug)]
 pub struct Driver {
-    context: mun_codegen::Context,
     db: CodegenContext<CompilerDatabase>,
     out_dir: Option<PathBuf>,
     display_color: DisplayColor,
@@ -33,7 +32,6 @@ impl Driver {
     /// Constructs a driver with a specific configuration.
     pub fn with_config(config: Config) -> Self {
         let mut driver = Driver {
-            context: mun_codegen::Context::create(),
             db: CodegenContext::new(CompilerDatabase::new()),
             out_dir: None,
             display_color: config.display_color,
@@ -134,7 +132,7 @@ impl Driver {
 impl Driver {
     /// Generate an assembly for the given file
     pub fn write_assembly(&mut self, file_id: FileId) -> Result<PathBuf, failure::Error> {
-        let module_builder = ModuleBuilder::new(&self.context, &self.db, file_id)?;
+        let module_builder = ModuleBuilder::new(&self.db, file_id)?;
         let obj_file = module_builder.build()?;
         obj_file.into_shared_object(self.out_dir.as_deref())
     }

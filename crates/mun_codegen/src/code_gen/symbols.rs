@@ -19,28 +19,27 @@ use std::collections::HashSet;
 
 /// Construct a `MunFunctionPrototype` struct for the specified HIR function.
 fn gen_prototype_from_function<'a, 'ink: 'a, D: hir::HirDatabase>(
-    context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &'ink CodegenContext<D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     function: hir::Function,
 ) -> StructValue<'ink> {
     let name = function.name(db.hir_db()).to_string();
 
-    let name_ir = intern_string(context, &module, &name, &name);
+    let name_ir = intern_string(&db.context, &module, &name, &name);
     let _visibility = match function.visibility(db.hir_db()) {
         hir::Visibility::Public => 0,
         _ => 1,
     };
 
     let fn_sig = function.ty(db.hir_db()).callable_sig(db.hir_db()).unwrap();
-    let ret_type_ir = gen_signature_return_type(context, db, module, types, fn_sig.ret().clone());
+    let ret_type_ir = gen_signature_return_type(db, module, types, fn_sig.ret().clone());
 
     let param_types: Vec<PointerValue> = fn_sig
         .params()
         .iter()
         .map(|ty| {
-            TypeTable::get(module, &db.type_info(context, ty.clone()))
+            TypeTable::get(module, &db.type_info(ty.clone()))
                 .unwrap()
                 .as_pointer_value()
         })
@@ -57,7 +56,7 @@ fn gen_prototype_from_function<'a, 'ink: 'a, D: hir::HirDatabase>(
     let signature = types.function_signature_type.const_named_struct(&[
         param_types.into(),
         ret_type_ir.into(),
-        context
+        db.context
             .i16_type()
             .const_int(num_params as u64, false)
             .into(),
@@ -125,8 +124,7 @@ fn gen_prototype_from_dispatch_entry<'a, 'ink: 'a>(
 /// Given a function, construct a pointer to a `MunTypeInfo` global that represents the return type
 /// of the function; or `null` if the return type is empty.
 fn gen_signature_return_type<'a, 'ink: 'a, D: hir::HirDatabase>(
-    context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &'ink CodegenContext<D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     ret_type: Ty,
@@ -137,7 +135,7 @@ fn gen_signature_return_type<'a, 'ink: 'a, D: hir::HirDatabase>(
         if ret_type.is_empty() {
             None
         } else {
-            Some(db.type_info(context, ret_type))
+            Some(db.type_info(ret_type))
         },
     )
 }
@@ -164,8 +162,7 @@ fn gen_signature_return_type_from_type_info<'a, 'ink: 'a>(
 /// Construct a global that holds a reference to all functions. e.g.:
 /// MunFunctionDefinition[] definitions = { ... }
 fn get_function_definition_array<'a, 'ink: 'a, D: hir::HirDatabase>(
-    context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &'ink CodegenContext<D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     functions: impl Iterator<Item = &'a hir::Function>,
@@ -183,7 +180,7 @@ fn get_function_definition_array<'a, 'ink: 'a, D: hir::HirDatabase>(
             value.set_linkage(Linkage::Private);
 
             // Generate the signature from the function
-            let prototype = gen_prototype_from_function(context, db, module, types, *f);
+            let prototype = gen_prototype_from_function(db, module, types, *f);
 
             // Generate the function info value
             types.function_definition_type.const_named_struct(&[
@@ -252,18 +249,17 @@ fn gen_dispatch_table<'a, 'ink: 'a>(
 /// `get_info` is constructed that returns a struct `MunAssemblyInfo`. See the `mun_abi` crate
 /// for the ABI that `get_info` exposes.
 pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
-    context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &'ink CodegenContext<D>,
     module: &'a Module<'ink>,
     api: &HashSet<hir::Function>,
     dispatch_table: &DispatchTable,
     type_table: &'b TypeTable<'ink>,
 ) {
     // Get all the types
-    let abi_types = gen_abi_types(context);
+    let abi_types = gen_abi_types(&db.context);
 
     let num_functions = api.len();
-    let function_info = get_function_definition_array(context, db, module, &abi_types, api.iter());
+    let function_info = get_function_definition_array(db, module, &abi_types, api.iter());
 
     let type_table_ir = if let Some(type_table) = module.get_global(TypeTable::NAME) {
         type_table.as_pointer_value()
@@ -274,38 +270,37 @@ pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
 
     // Construct the module info struct
     let module_info = abi_types.module_info_type.const_named_struct(&[
-        intern_string(context, module, "", "module_info::path").into(),
+        intern_string(&db.context, module, "", "module_info::path").into(),
         function_info.as_pointer_value().into(),
-        context
+        db.context
             .i32_type()
             .const_int(num_functions as u64, false)
             .into(),
         type_table_ir.into(),
-        context
+        db.context
             .i32_type()
             .const_int(type_table.num_types() as u64, false)
             .into(),
     ]);
 
     // Construct the dispatch table struct
-    let dispatch_table = gen_dispatch_table(context, module, &abi_types, dispatch_table);
+    let dispatch_table = gen_dispatch_table(&db.context, module, &abi_types, dispatch_table);
 
     // Construct the actual `get_info` function
-    gen_get_info_fn(context, db, module, &abi_types, module_info, dispatch_table);
-    gen_set_allocator_handle_fn(context, module);
+    gen_get_info_fn(db, module, &abi_types, module_info, dispatch_table);
+    gen_set_allocator_handle_fn(&db.context, module);
 }
 
 /// Construct the actual `get_info` function.
 fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
-    context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &'ink CodegenContext<D>,
     module: &Module<'ink>,
     abi_types: &AbiTypes<'ink>,
     module_info: StructValue<'ink>,
     dispatch_table: StructValue<'ink>,
 ) {
     let target = db.target();
-    let str_type = context.i8_type().ptr_type(AddressSpace::Const);
+    let str_type = db.context.i8_type().ptr_type(AddressSpace::Const);
 
     // Construct the return type of the `get_info` method. Depending on the C ABI this is either the
     // `MunAssemblyInfo` struct or void. On windows the return argument is passed back to the caller
@@ -319,7 +314,7 @@ fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     // MunModuleInfo get_info() { ... }
     // ```
     let get_symbols_type = if target.options.is_like_windows {
-        context.void_type().fn_type(
+        db.context.void_type().fn_type(
             &[abi_types
                 .assembly_info_type
                 .ptr_type(AddressSpace::Generic)
@@ -336,12 +331,12 @@ fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     if target.options.is_like_windows {
         get_symbols_fn.add_attribute(
             inkwell::attributes::AttributeLoc::Param(0),
-            context.create_enum_attribute(Attribute::get_named_enum_kind_id("sret"), 1),
+            db.context.create_enum_attribute(Attribute::get_named_enum_kind_id("sret"), 1),
         );
     }
 
-    let builder = context.create_builder();
-    let body_ir = context.append_basic_block(get_symbols_fn, "body");
+    let builder = db.context.create_builder();
+    let body_ir = db.context.append_basic_block(get_symbols_fn, "body");
     builder.position_at_end(body_ir);
 
     // Get a pointer to the IR value that will hold the return value. Again this differs depending
@@ -371,7 +366,7 @@ fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     );
     builder.build_store(
         num_dependencies_addr,
-        context.i32_type().const_int(0 as u64, false),
+        db.context.i32_type().const_int(0 as u64, false),
     );
 
     // Construct the return statement of the function.
