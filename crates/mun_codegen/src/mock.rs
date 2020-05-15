@@ -1,10 +1,14 @@
+use mun_target::spec::Target;
 use crate::CodegenContext;
+use hir::HirDatabase;
 use hir::mock::MockDatabase;
 use hir::{FileId, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
 use std::sync::Arc;
 
 pub fn single_file_mock_db(text: &str) -> (CodegenContext<MockDatabase>, FileId) {
     let mut db: MockDatabase = Default::default();
+
+    db.set_target(Target::host_target().unwrap());
 
     let mut source_root = SourceRoot::default();
     let source_root_id = SourceRootId(0);

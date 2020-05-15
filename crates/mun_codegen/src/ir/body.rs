@@ -281,7 +281,7 @@ impl<'ink, 'a, 'b, D: hir::HirDatabase> BodyIrGenerator<'ink, 'a, 'b, D> {
                     ),
                 };
 
-                let ir_ty = match ty.resolve(&self.db.target_data_layout()).bitness {
+                let ir_ty = match ty.resolve(&self.db.hir_db().target_data_layout()).bitness {
                     hir::IntBitness::X8 => self.db.context.i8_type().const_int(v.value as u64, false),
                     hir::IntBitness::X16 => self.db.context.i16_type().const_int(v.value as u64, false),
                     hir::IntBitness::X32 => self.db.context.i32_type().const_int(v.value as u64, false),
@@ -306,7 +306,7 @@ impl<'ink, 'a, 'b, D: hir::HirDatabase> BodyIrGenerator<'ink, 'a, 'b, D> {
                     _ => unreachable!("cannot construct an IR value for anything but a float type"),
                 };
 
-                let ir_ty = match ty.bitness.resolve(&self.db.target_data_layout()) {
+                let ir_ty = match ty.bitness.resolve(&self.db.hir_db().target_data_layout()) {
                     hir::FloatBitness::X32 => self.db.context.f32_type().const_float(v.value),
                     hir::FloatBitness::X64 => self.db.context.f64_type().const_float(v.value),
                 };

@@ -299,7 +299,7 @@ fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     module_info: StructValue<'ink>,
     dispatch_table: StructValue<'ink>,
 ) {
-    let target = db.target();
+    let target = db.hir_db().target();
     let str_type = db.context.i8_type().ptr_type(AddressSpace::Const);
 
     // Construct the return type of the `get_info` method. Depending on the C ABI this is either the

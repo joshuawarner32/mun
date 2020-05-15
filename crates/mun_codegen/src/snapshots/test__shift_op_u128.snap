@@ -6,17 +6,17 @@ expression: "pub fn leftshift(a: u128, b: u128) -> u128 { a << b }\npub fn right
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
-define i128 @leftshift(i128, i128) {
+define i128 @leftshift(i128 %0, i128 %1) {
 body:
   %left_shift = shl i128 %0, %1
   ret i128 %left_shift
 }
 
-define i128 @rightshift(i128, i128) {
+define i128 @rightshift(i128 %0, i128 %1) {
 body:
   %right_shift = lshr i128 %0, %1
   ret i128 %right_shift

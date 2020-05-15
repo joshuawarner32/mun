@@ -225,9 +225,13 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
         type_info_to_ir: &mut HashMap<TypeInfo, GlobalValue<'ink>>,
         hir_struct: hir::Struct,
     ) -> StructValue {
-        let struct_ir = self.db.struct_ty(hir_struct);
         let name = hir_struct.name(self.db.hir_db()).to_string();
         let fields = hir_struct.fields(self.db.hir_db());
+        println!("computed fields inside gen_struct_info: {}", fields.len());
+        let struct_ir = self.db.struct_ty(hir_struct);
+
+        // This is because the struct is generated with opaque_struct_type
+        println!("llvm ir has {} fields", struct_ir.count_fields());
 
         let field_names = gen_string_array(
             &self.db.context,

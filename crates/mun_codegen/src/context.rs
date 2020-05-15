@@ -58,10 +58,6 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
         &self.target
     }
 
-    pub fn set_target(&mut self, target: Target) {
-        self.target = target
-    }
-
     pub fn target_data(&self) -> Arc<TargetData> {
         self.target_data.clone()
     }
@@ -75,6 +71,8 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
     }
 
     pub fn struct_ty<'ink>(&'ink self, s: hir::Struct) -> StructType<'ink> {
+        let fields = s.fields(self.hir_db());
+        println!("computed fields inside struct_ty: {}", fields.len());
         crate::ir::ty::struct_ty_query(self, s)
     }
 

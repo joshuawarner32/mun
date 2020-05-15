@@ -101,7 +101,7 @@ pub struct ModuleBuilder<'ink, D: hir::HirDatabase> {
 impl<'ink, D: hir::HirDatabase> ModuleBuilder<'ink, D> {
     /// Constructs module for the given `hir::FileId` at the specified output file location.
     pub fn new(db: &'ink CodegenContext<D>, file_id: FileId) -> Result<Self, failure::Error> {
-        let target = db.target();
+        let target = db.hir_db().target();
 
         // Construct a module for the assembly
         let assembly_module = Arc::new(
@@ -168,7 +168,7 @@ impl<'ink, D: hir::HirDatabase> ModuleBuilder<'ink, D> {
         //println!("{}", assembly_module.print_to_string().to_string());
 
         ObjectFile::new(
-            &self.db.target(),
+            &self.db.hir_db().target(),
             &self.target_machine,
             self.db.hir_db().file_relative_path(self.file_id),
             self.assembly_module,

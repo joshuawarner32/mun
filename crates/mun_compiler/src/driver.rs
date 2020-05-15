@@ -13,6 +13,7 @@ mod display_color;
 pub use self::config::Config;
 pub use self::display_color::DisplayColor;
 
+use mun_hir::HirDatabase;
 use annotate_snippets::{
     display_list::DisplayList,
     formatter::DisplayListFormatter,
@@ -39,7 +40,7 @@ impl Driver {
 
         // Move relevant configuration into the database
         // TODO: reenable!!!
-        // driver.db.set_target(config.target);
+        driver.db.hir_db_mut().set_target(config.target);
         // driver.db.set_optimization_lvl(config.optimization_lvl);
 
         driver.out_dir = config.out_dir;

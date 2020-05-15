@@ -6,20 +6,20 @@ expression: "fn bar() {\n    let a = 3;\n}\npub fn foo(a:i32) {\n    let c = bar
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%DispatchTable = type { void ()* }
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%DispatchTable.0 = type { void ()* }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@dispatchTable = external global %DispatchTable
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@dispatchTable = external global %DispatchTable.0
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
 define void @bar() {
 body:
   ret void
 }
 
-define void @foo(i32) {
+define void @foo(i32 %0) {
 body:
-  %bar_ptr = load void ()*, void ()** getelementptr inbounds (%DispatchTable, %DispatchTable* @dispatchTable, i32 0, i32 0)
+  %bar_ptr = load void ()*, void ()** getelementptr inbounds (%DispatchTable.0, %DispatchTable.0* @dispatchTable, i32 0, i32 0)
   call void %bar_ptr()
   ret void
 }

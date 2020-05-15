@@ -6,11 +6,11 @@ expression: "pub fn negate(a: i128) -> i128 { -a }"
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
-define i128 @negate(i128) {
+define i128 @negate(i128 %0) {
 body:
   %neg = sub i128 0, %0
   ret i128 %neg

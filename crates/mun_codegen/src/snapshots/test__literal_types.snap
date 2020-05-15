@@ -6,9 +6,9 @@ expression: "pub fn main(){\n    let a = 123;\n    let a = 123u8;\n    let a = 1
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
 define void @main() {
 body:
@@ -47,7 +47,7 @@ body:
   ret void
 }
 
-define i32 @add(i32) {
+define i32 @add(i32 %0) {
 body:
   %a = alloca i32
   store i32 %0, i32* %a

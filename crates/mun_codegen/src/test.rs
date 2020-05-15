@@ -5,6 +5,7 @@ use hir::{
 };
 use inkwell::OptimizationLevel;
 use mun_target::spec::Target;
+use hir::HirDatabase;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -744,7 +745,6 @@ fn incremental_compilation() {
         "#,
     );
     db.set_optimization_lvl(OptimizationLevel::Default);
-    db.set_target(Target::host_target().unwrap());
 
     {
         let events = log_executed(&db, || {
@@ -838,7 +838,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
 
     let (mut db, file_id) = single_file_mock_db(&text);
     db.set_optimization_lvl(opt);
-    db.set_target(Target::host_target().unwrap());
+    db.hir_db_mut().set_target(Target::host_target().unwrap());
 
     let line_index: Arc<LineIndex> = db.hir_db().line_index(file_id);
     let messages = RefCell::new(Vec::new());

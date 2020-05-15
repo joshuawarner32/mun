@@ -58,7 +58,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, t
 
 /// Returns the LLVM IR type of the specified float type
 fn float_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, fty: FloatTy) -> FloatType<'ink> {
-    match fty.bitness.resolve(&db.target_data_layout()) {
+    match fty.bitness.resolve(&db.hir_db().target_data_layout()) {
         FloatBitness::X64 => db.context.f64_type(),
         FloatBitness::X32 => db.context.f32_type(),
     }
@@ -66,7 +66,7 @@ fn float_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, fty: F
 
 /// Returns the LLVM IR type of the specified int type
 fn int_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, ity: IntTy) -> IntType<'ink> {
-    match ity.bitness.resolve(&db.target_data_layout()) {
+    match ity.bitness.resolve(&db.hir_db().target_data_layout()) {
         IntBitness::X128 => db.context.i128_type(),
         IntBitness::X64 => db.context.i64_type(),
         IntBitness::X32 => db.context.i32_type(),
@@ -79,7 +79,9 @@ fn int_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, ity: Int
 /// Returns the LLVM IR type of the specified struct
 pub fn struct_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, s: hir::Struct) -> StructType<'ink> {
     let name = s.name(db.hir_db()).to_string();
-    for field in s.fields(db.hir_db()).iter() {
+    let fields = s.fields(db.hir_db());
+    println!("computed fields inside struct_ty_query: {}", fields.len());
+    for field in fields {
         // Ensure that salsa's cached value incorporates the struct fields
         let _field_type_ir = db.type_ir(
             field.ty(db.hir_db()),

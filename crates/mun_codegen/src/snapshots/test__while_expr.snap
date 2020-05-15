@@ -6,11 +6,11 @@ expression: "pub fn foo(n:i32) {\n    while n<3 {\n        n += 1;\n    };\n\n  
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
-define void @foo(i32) {
+define void @foo(i32 %0) {
 body:
   br label %whilecond
 

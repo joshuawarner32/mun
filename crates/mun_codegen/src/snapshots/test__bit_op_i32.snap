@@ -6,29 +6,29 @@ expression: "pub fn not(a: i32) -> i32 { !a }\npub fn bitand(a: i32, b: i32) -> 
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
-define i32 @not(i32) {
+define i32 @not(i32 %0) {
 body:
   %not = xor i32 %0, -1
   ret i32 %not
 }
 
-define i32 @bitand(i32, i32) {
+define i32 @bitand(i32 %0, i32 %1) {
 body:
   %bit_and = and i32 %0, %1
   ret i32 %bit_and
 }
 
-define i32 @bitor(i32, i32) {
+define i32 @bitor(i32 %0, i32 %1) {
 body:
   %bit_or = or i32 %0, %1
   ret i32 %bit_or
 }
 
-define i32 @bitxor(i32, i32) {
+define i32 @bitxor(i32 %0, i32 %1) {
 body:
   %bit_xor = xor i32 %0, %1
   ret i32 %bit_xor

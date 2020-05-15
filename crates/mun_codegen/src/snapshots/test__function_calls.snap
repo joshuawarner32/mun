@@ -6,32 +6,32 @@ expression: "fn add_impl(a:i32, b:i32) -> i32 {\n    a+b\n}\n\nfn add(a:i32, b:i
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%DispatchTable = type { i32 (i32, i32)*, i32 (i32, i32)* }
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%DispatchTable.0 = type { i32 (i32, i32)*, i32 (i32, i32)* }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 
-@dispatchTable = external global %DispatchTable
-@global_type_table = external global [1 x %struct.MunTypeInfo addrspace(4)*]
+@dispatchTable = external global %DispatchTable.0
+@global_type_table = external global [1 x %struct.MunTypeInfo.1 addrspace(4)*]
 
-define i32 @add_impl(i32, i32) {
+define i32 @add_impl(i32 %0, i32 %1) {
 body:
   %add = add i32 %0, %1
   ret i32 %add
 }
 
-define i32 @add(i32, i32) {
+define i32 @add(i32 %0, i32 %1) {
 body:
-  %add_impl_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable, %DispatchTable* @dispatchTable, i32 0, i32 1)
+  %add_impl_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable.0, %DispatchTable.0* @dispatchTable, i32 0, i32 1)
   %add_impl = call i32 %add_impl_ptr(i32 %0, i32 %1)
   ret i32 %add_impl
 }
 
 define i32 @test() {
 body:
-  %add_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable, %DispatchTable* @dispatchTable, i32 0, i32 0)
+  %add_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable.0, %DispatchTable.0* @dispatchTable, i32 0, i32 0)
   %add = call i32 %add_ptr(i32 4, i32 5)
-  %add_impl_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable, %DispatchTable* @dispatchTable, i32 0, i32 1)
+  %add_impl_ptr = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable.0, %DispatchTable.0* @dispatchTable, i32 0, i32 1)
   %add_impl = call i32 %add_impl_ptr(i32 4, i32 5)
-  %add_ptr1 = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable, %DispatchTable* @dispatchTable, i32 0, i32 0)
+  %add_ptr1 = load i32 (i32, i32)*, i32 (i32, i32)** getelementptr inbounds (%DispatchTable.0, %DispatchTable.0* @dispatchTable, i32 0, i32 0)
   %add2 = call i32 %add_ptr1(i32 4, i32 5)
   ret i32 %add2
 }
