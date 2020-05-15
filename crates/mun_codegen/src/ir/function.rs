@@ -1,7 +1,7 @@
 use inkwell::context::Context;
 use crate::ir::{body::BodyIrGenerator, dispatch_table::DispatchTable, type_table::TypeTable};
 use crate::values::FunctionValue;
-use crate::{CodeGenParams, IrDatabase, Module, OptimizationLevel};
+use crate::{CodeGenParams, CodegenContext, Module, OptimizationLevel};
 use inkwell::passes::{PassManager, PassManagerBuilder};
 use inkwell::types::AnyTypeEnum;
 
@@ -29,7 +29,7 @@ pub(crate) fn create_pass_manager<'ink>(
 /// allows bodies to reference `FunctionValue` wherever they are declared in the file.
 pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &IrDatabase<D>,
+    db: &CodegenContext<D>,
     f: hir::Function,
     module: &Module<'ink>,
     params: CodeGenParams,
@@ -53,7 +53,7 @@ pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
 /// Generates the body of a `hir::Function` for an associated `FunctionValue`.
 pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &'a IrDatabase<D>,
+    db: &'a CodegenContext<D>,
     function: (hir::Function, FunctionValue),
     llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
     dispatch_table: &'b DispatchTable,
@@ -80,7 +80,7 @@ pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
 /// `FunctionValue`
 pub(crate) fn gen_wrapper_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &'a IrDatabase<D>,
+    db: &'a CodegenContext<D>,
     function: (hir::Function, FunctionValue),
     llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
     dispatch_table: &'b DispatchTable,

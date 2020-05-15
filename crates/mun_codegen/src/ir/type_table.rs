@@ -7,7 +7,7 @@ use crate::ir::{
     dispatch_table::{DispatchTable, FunctionPrototype},
 };
 use crate::type_info::{TypeGroup, TypeInfo};
-use crate::IrDatabase;
+use crate::CodegenContext;
 use hir::{Body, ExprId, InferenceResult};
 use inkwell::{
     module::Module,
@@ -84,7 +84,7 @@ impl<'ink> TypeTable<'ink> {
 /// Used to build a `TypeTable` from HIR.
 pub(crate) struct TypeTableBuilder<'ink, 'a, D: hir::HirDatabase> {
     context: &'ink Context,
-    db: &'a IrDatabase<D>,
+    db: &'a CodegenContext<D>,
     target_data: Arc<TargetData>,
     module: &'a Module<'ink>,
     abi_types: &'a AbiTypes<'ink>,
@@ -96,7 +96,7 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
     /// Creates a new `TypeTableBuilder`.
     pub(crate) fn new<'f>(
         context: &'ink Context,
-        db: &'a IrDatabase<D>,
+        db: &'a CodegenContext<D>,
         module: &'a Module<'ink>,
         abi_types: &'a AbiTypes<'ink>,
         intrinsics: impl Iterator<Item = &'f FunctionPrototype>,

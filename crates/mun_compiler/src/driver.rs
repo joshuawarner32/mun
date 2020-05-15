@@ -2,7 +2,7 @@
 //! from previous compilation.
 
 use crate::{db::CompilerDatabase, diagnostics::diagnostics, PathOrInline};
-use mun_codegen::{IrDatabase, ModuleBuilder};
+use mun_codegen::{CodegenContext, ModuleBuilder};
 use mun_hir::{FileId, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
 
 use std::{path::PathBuf, sync::Arc};
@@ -24,7 +24,7 @@ pub const WORKSPACE: SourceRootId = SourceRootId(0);
 #[derive(Debug)]
 pub struct Driver {
     context: mun_codegen::Context,
-    db: IrDatabase<CompilerDatabase>,
+    db: CodegenContext<CompilerDatabase>,
     out_dir: Option<PathBuf>,
     display_color: DisplayColor,
 }
@@ -34,7 +34,7 @@ impl Driver {
     pub fn with_config(config: Config) -> Self {
         let mut driver = Driver {
             context: mun_codegen::Context::create(),
-            db: IrDatabase::new(CompilerDatabase::new()),
+            db: CodegenContext::new(CompilerDatabase::new()),
             out_dir: None,
             display_color: config.display_color,
         };

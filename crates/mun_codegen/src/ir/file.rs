@@ -1,7 +1,7 @@
 use inkwell::context::Context;
 use super::body::ExternalGlobals;
 use crate::ir::{function, type_table::TypeTable};
-use crate::{CodeGenParams, IrDatabase};
+use crate::{CodeGenParams, CodegenContext};
 use hir::{FileId, ModuleDef};
 use inkwell::module::Module;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -19,7 +19,7 @@ pub struct FileIR<'ink> {
 }
 
 /// Generates IR for the specified file.
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, file_id: FileId) -> Arc<FileIR<'ink>> {
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, file_id: FileId) -> Arc<FileIR<'ink>> {
     let llvm_module = context
         .create_module(db.hir_db().file_relative_path(file_id).as_str());
 

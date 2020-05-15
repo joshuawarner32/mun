@@ -1,6 +1,6 @@
 /// This library generates machine code from HIR using inkwell which is a safe wrapper around LLVM.
 mod code_gen;
-mod db;
+mod context;
 #[macro_use]
 mod ir;
 
@@ -16,7 +16,7 @@ pub use inkwell::{builder, context::Context, module::Module, values, Optimizatio
 
 pub use crate::{
     code_gen::ModuleBuilder,
-    db::{IrDatabase},
+    context::CodegenContext,
 };
 
 #[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]

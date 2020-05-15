@@ -2,7 +2,7 @@ use inkwell::context::Context;
 use crate::intrinsics;
 use crate::{
     ir::{dispatch_table::DispatchTable, try_convert_any_to_basic, type_table::TypeTable},
-    CodeGenParams, IrDatabase,
+    CodeGenParams, CodegenContext,
 };
 use hir::{
     ArenaId, ArithOp, BinaryOp, Body, CmpOp, Expr, ExprId, HirDisplay, InferenceResult, Literal,
@@ -36,7 +36,7 @@ pub(crate) struct ExternalGlobals<'ink> {
 
 pub(crate) struct BodyIrGenerator<'ink, 'a, 'b, D: hir::HirDatabase> {
     context: &'ink Context,
-    db: &'a IrDatabase<D>,
+    db: &'a CodegenContext<D>,
     body: Arc<Body>,
     infer: Arc<InferenceResult>,
     builder: Builder<'ink>,
@@ -56,7 +56,7 @@ pub(crate) struct BodyIrGenerator<'ink, 'a, 'b, D: hir::HirDatabase> {
 impl<'ink, 'a, 'b, D: hir::HirDatabase> BodyIrGenerator<'ink, 'a, 'b, D> {
     pub fn new(
         context: &'ink Context,
-        db: &'a IrDatabase<D>,
+        db: &'a CodegenContext<D>,
         function: (hir::Function, FunctionValue<'ink>),
         function_map: &'a HashMap<hir::Function, FunctionValue<'ink>>,
         dispatch_table: &'b DispatchTable<'ink>,

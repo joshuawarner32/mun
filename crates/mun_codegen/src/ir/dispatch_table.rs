@@ -1,7 +1,7 @@
 use crate::intrinsics::Intrinsic;
 use crate::ir::function;
 use crate::type_info::TypeInfo;
-use crate::{CodeGenParams, IrDatabase};
+use crate::{CodeGenParams, CodegenContext};
 use hir::{Body, Expr, ExprId, InferenceResult};
 use inkwell::{
     context::Context,
@@ -75,7 +75,7 @@ impl<'ink> DispatchTable<'ink> {
     /// struct
     pub fn gen_function_lookup<D: hir::HirDatabase>(
         &self,
-        db: &IrDatabase<D>,
+        db: &CodegenContext<D>,
         table_ref: Option<inkwell::values::GlobalValue<'ink>>,
         builder: &inkwell::builder::Builder<'ink>,
         function: hir::Function,
@@ -150,7 +150,7 @@ impl<'ink> DispatchTable<'ink> {
 
 /// A struct that can be used to build the dispatch table from HIR.
 pub(crate) struct DispatchTableBuilder<'ink, 'a, D: hir::HirDatabase> {
-    db: &'a IrDatabase<D>,
+    db: &'a CodegenContext<D>,
     // The LLVM context in which all LLVM types live
     context: &'ink Context,
     // The module in which all values live
@@ -178,7 +178,7 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
     /// Creates a new builder that can generate a dispatch function.
     pub fn new(
         context: &'ink Context,
-        db: &'a IrDatabase<D>,
+        db: &'a CodegenContext<D>,
         module: &'a Module<'ink>,
         intrinsics: &BTreeMap<FunctionPrototype, FunctionType<'ink>>,
     ) -> Self {

@@ -1,4 +1,4 @@
-use crate::db::IrDatabase;
+use crate::CodegenContext;
 use inkwell::context::Context;
 use super::{
     abi_types::{gen_abi_types, AbiTypes},
@@ -30,7 +30,7 @@ pub struct FileGroupIR<'ink> {
 /// Generates IR that is shared among the group's files.
 /// TODO: Currently, a group always consists of a single file. Need to add support for multiple
 /// files using something like `FileGroupId`.
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
     let llvm_module = context.create_module("group_name");
 
     // Use a `BTreeMap` to guarantee deterministically ordered output.

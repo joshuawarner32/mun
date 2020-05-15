@@ -3,7 +3,7 @@ use inkwell::context::Context;
 use super::try_convert_any_to_basic;
 use crate::{
     type_info::{TypeInfo, TypeSize},
-    CodeGenParams, IrDatabase,
+    CodeGenParams, CodegenContext,
 };
 use hir::{
     ApplicationTy, CallableDef, FloatBitness, FloatTy, IntBitness, IntTy, ResolveBitness, Ty,
@@ -16,7 +16,7 @@ use inkwell::{
 
 /// Given a mun type, construct an LLVM IR type
 #[rustfmt::skip]
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, ty: Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, ty: Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
     match ty {
         Ty::Empty => AnyTypeEnum::StructType(context.struct_type(&[], false)),
         Ty::Apply(ApplicationTy { ctor, .. }) => match ctor {
@@ -59,7 +59,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &I
 }
 
 /// Returns the LLVM IR type of the specified float type
-fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, fty: FloatTy) -> FloatType<'ink> {
+fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, fty: FloatTy) -> FloatType<'ink> {
     match fty.bitness.resolve(&db.target_data_layout()) {
         FloatBitness::X64 => context.f64_type(),
         FloatBitness::X32 => context.f32_type(),
@@ -67,7 +67,7 @@ fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrData
 }
 
 /// Returns the LLVM IR type of the specified int type
-fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, ity: IntTy) -> IntType<'ink> {
+fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, ity: IntTy) -> IntType<'ink> {
     match ity.bitness.resolve(&db.target_data_layout()) {
         IntBitness::X128 => context.i128_type(),
         IntBitness::X64 => context.i64_type(),
@@ -79,7 +79,7 @@ fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDataba
 }
 
 /// Returns the LLVM IR type of the specified struct
-pub fn struct_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, s: hir::Struct) -> StructType<'ink> {
+pub fn struct_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, s: hir::Struct) -> StructType<'ink> {
     let name = s.name(db.hir_db()).to_string();
     for field in s.fields(db.hir_db()).iter() {
         // Ensure that salsa's cached value incorporates the struct fields
@@ -96,7 +96,7 @@ pub fn struct_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &I
 }
 
 /// Constructs the `TypeInfo` for the specified HIR type
-pub fn type_info_query<'ink, D: hir::HirDatabase>(context: &'ink Context, target: &TargetData, db: &IrDatabase<D>, ty: Ty) -> TypeInfo {
+pub fn type_info_query<'ink, D: hir::HirDatabase>(context: &'ink Context, target: &TargetData, db: &CodegenContext<D>, ty: Ty) -> TypeInfo {
     match ty {
         Ty::Apply(ctor) => match ctor.ctor {
             TypeCtor::Float(ty) => {

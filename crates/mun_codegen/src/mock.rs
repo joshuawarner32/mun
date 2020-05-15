@@ -1,9 +1,9 @@
-use crate::db::IrDatabase;
+use crate::CodegenContext;
 use hir::mock::MockDatabase;
 use hir::{FileId, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
 use std::sync::Arc;
 
-pub fn single_file_mock_db(text: &str) -> (IrDatabase<MockDatabase>, FileId) {
+pub fn single_file_mock_db(text: &str) -> (CodegenContext<MockDatabase>, FileId) {
     let mut db: MockDatabase = Default::default();
 
     let mut source_root = SourceRoot::default();
@@ -18,16 +18,16 @@ pub fn single_file_mock_db(text: &str) -> (IrDatabase<MockDatabase>, FileId) {
     source_root.insert_file(rel_path, file_id);
 
     db.set_source_root(source_root_id, Arc::new(source_root));
-    (IrDatabase::new(db), file_id)
+    (CodegenContext::new(db), file_id)
 }
 
-pub fn log(db: &IrDatabase<MockDatabase>, f: impl FnOnce()) -> Vec<salsa::Event<MockDatabase>> {
+pub fn log(db: &CodegenContext<MockDatabase>, f: impl FnOnce()) -> Vec<salsa::Event<MockDatabase>> {
     *db.hir_db().events.lock() = Some(Vec::new());
     f();
     db.hir_db().events.lock().take().unwrap()
 }
 
-pub fn log_executed(db: &IrDatabase<MockDatabase>, f: impl FnOnce()) -> Vec<String> {
+pub fn log_executed(db: &CodegenContext<MockDatabase>, f: impl FnOnce()) -> Vec<String> {
     let events = log(db, f);
     events
         .into_iter()

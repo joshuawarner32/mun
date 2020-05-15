@@ -1,7 +1,7 @@
 use inkwell::context::Context;
 use crate::intrinsics::{self, Intrinsic};
 use crate::ir::dispatch_table::FunctionPrototype;
-use crate::IrDatabase;
+use crate::CodegenContext;
 use hir::{Body, Expr, ExprId, InferenceResult};
 use inkwell::types::FunctionType;
 use std::collections::BTreeMap;
@@ -12,7 +12,7 @@ pub type IntrinsicsMap<'ink> = BTreeMap<FunctionPrototype, FunctionType<'ink>>;
 
 fn collect_intrinsic<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &IrDatabase<D>,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     intrinsic: &impl Intrinsic,
 ) {
@@ -25,7 +25,7 @@ fn collect_intrinsic<'ink, D: hir::HirDatabase>(
 
 fn collect_expr<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &IrDatabase<D>,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
     expr_id: ExprId,
@@ -73,7 +73,7 @@ fn collect_expr<'ink, D: hir::HirDatabase>(
 
 pub fn collect_fn_body<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &IrDatabase<D>,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
     body: &Arc<Body>,
@@ -84,7 +84,7 @@ pub fn collect_fn_body<'ink, D: hir::HirDatabase>(
 
 pub fn collect_wrapper_body<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &IrDatabase<D>,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
 ) {
