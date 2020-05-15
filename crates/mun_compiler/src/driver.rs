@@ -3,7 +3,7 @@
 
 use crate::{db::CompilerDatabase, diagnostics::diagnostics, PathOrInline};
 use mun_codegen::{IrDatabase, ModuleBuilder};
-use mun_hir::{FileId, HirDatabase, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
+use mun_hir::{FileId, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -23,7 +23,8 @@ pub const WORKSPACE: SourceRootId = SourceRootId(0);
 
 #[derive(Debug)]
 pub struct Driver {
-    db: CompilerDatabase,
+    context: mun_codegen::Context,
+    db: IrDatabase<CompilerDatabase>,
     out_dir: Option<PathBuf>,
     display_color: DisplayColor,
 }
@@ -32,17 +33,16 @@ impl Driver {
     /// Constructs a driver with a specific configuration.
     pub fn with_config(config: Config) -> Self {
         let mut driver = Driver {
-            db: CompilerDatabase::new(),
+            context: mun_codegen::Context::create(),
+            db: IrDatabase::new(CompilerDatabase::new()),
             out_dir: None,
             display_color: config.display_color,
         };
 
         // Move relevant configuration into the database
-        driver.db.set_target(config.target);
-        driver
-            .db
-            .set_context(Arc::new(mun_codegen::Context::create()));
-        driver.db.set_optimization_lvl(config.optimization_lvl);
+        // TODO: reenable!!!
+        // driver.db.set_target(config.target);
+        // driver.db.set_optimization_lvl(config.optimization_lvl);
 
         driver.out_dir = config.out_dir;
 
@@ -78,11 +78,11 @@ impl Driver {
 
         // Store the file information in the database together with the source root
         let file_id = FileId(0);
-        driver.db.set_file_relative_path(file_id, rel_path.clone());
-        driver.db.set_file_text(file_id, Arc::new(text));
-        driver.db.set_file_source_root(file_id, WORKSPACE);
+        driver.db.hir_db_mut().set_file_relative_path(file_id, rel_path.clone());
+        driver.db.hir_db_mut().set_file_text(file_id, Arc::new(text));
+        driver.db.hir_db_mut().set_file_source_root(file_id, WORKSPACE);
         source_root.insert_file(rel_path, file_id);
-        driver.db.set_source_root(WORKSPACE, Arc::new(source_root));
+        driver.db.hir_db_mut().set_source_root(WORKSPACE, Arc::new(source_root));
 
         Ok((driver, file_id))
     }
@@ -91,7 +91,7 @@ impl Driver {
 impl Driver {
     /// Sets the contents of a specific file.
     pub fn set_file_text<T: AsRef<str>>(&mut self, file_id: FileId, text: T) {
-        self.db
+        self.db.hir_db_mut()
             .set_file_text(file_id, Arc::new(text.as_ref().to_owned()));
     }
 }
@@ -99,10 +99,10 @@ impl Driver {
 impl Driver {
     /// Returns a vector containing all the diagnostic messages for the project.
     pub fn diagnostics(&self) -> Vec<Snippet> {
-        self.db
+        self.db.hir_db()
             .source_root(WORKSPACE)
             .files()
-            .map(|f| diagnostics(&self.db, f))
+            .map(|f| diagnostics(self.db.hir_db(), f))
             .flatten()
             .collect()
     }
@@ -115,8 +115,8 @@ impl Driver {
     ) -> Result<bool, failure::Error> {
         let mut has_errors = false;
         let dlf = DisplayListFormatter::new(self.display_color.should_enable(), false);
-        for file_id in self.db.source_root(WORKSPACE).files() {
-            let diags = diagnostics(&self.db, file_id);
+        for file_id in self.db.hir_db().source_root(WORKSPACE).files() {
+            let diags = diagnostics(self.db.hir_db(), file_id);
             for diagnostic in diags {
                 let dl = DisplayList::from(diagnostic.clone());
                 writeln!(writer, "{}", dlf.format(&dl)).unwrap();
@@ -134,7 +134,7 @@ impl Driver {
 impl Driver {
     /// Generate an assembly for the given file
     pub fn write_assembly(&mut self, file_id: FileId) -> Result<PathBuf, failure::Error> {
-        let module_builder = ModuleBuilder::new(&self.db, file_id)?;
+        let module_builder = ModuleBuilder::new(&self.context, &self.db, file_id)?;
         let obj_file = module_builder.build()?;
         obj_file.into_shared_object(self.out_dir.as_deref())
     }

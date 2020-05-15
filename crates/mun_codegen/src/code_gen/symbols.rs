@@ -292,7 +292,7 @@ pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
 
     // Construct the actual `get_info` function
     gen_get_info_fn(context, db, module, &abi_types, module_info, dispatch_table);
-    gen_set_allocator_handle_fn(context, db, module);
+    gen_set_allocator_handle_fn(context, module);
 }
 
 /// Construct the actual `get_info` function.
@@ -385,7 +385,7 @@ fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     function::create_pass_manager(&module, db.optimization_lvl()).run_on(&get_symbols_fn);
 }
 
-fn gen_set_allocator_handle_fn<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, module: &Module<'ink>) {
+fn gen_set_allocator_handle_fn<'ink>(context: &'ink Context, module: &Module<'ink>) {
     let allocator_handle_type = context.i8_type().ptr_type(AddressSpace::Generic);
 
     let set_allocator_handle_fn_type = context

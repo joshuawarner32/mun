@@ -1271,7 +1271,7 @@ impl<'ink, 'a, 'b, D: hir::HirDatabase> BodyIrGenerator<'ink, 'a, 'b, D> {
         let receiver_ptr = self
             .opt_deref_value(self.infer[receiver_expr].clone(), receiver_ptr.into())
             .into_pointer_value();
-        unsafe {
+        {
             self.builder.build_struct_gep(
                 receiver_ptr,
                 field_idx,

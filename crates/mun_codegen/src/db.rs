@@ -40,6 +40,10 @@ impl<D: hir::HirDatabase> IrDatabase<D> {
         &self.hir_db
     }
 
+    pub fn hir_db_mut (&mut self) -> &mut D {
+        &mut self.hir_db
+    }
+
     pub fn optimization_lvl(&self) -> OptimizationLevel {
         self.optimization_lvl
     }
