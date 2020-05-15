@@ -1,3 +1,4 @@
+use inkwell::context::Context;
 use crate::code_gen::{gen_global, gen_struct_ptr_array, intern_string};
 use crate::ir::{
     abi_types::{gen_abi_types, AbiTypes},
@@ -17,28 +18,29 @@ use inkwell::{
 use std::collections::HashSet;
 
 /// Construct a `MunFunctionPrototype` struct for the specified HIR function.
-fn gen_prototype_from_function<D: IrDatabase>(
-    db: &D,
-    module: &Module,
-    types: &AbiTypes,
+fn gen_prototype_from_function<'a, 'ink: 'a, D: hir::HirDatabase>(
+    context: &'ink Context,
+    db: &IrDatabase<D>,
+    module: &'a Module<'ink>,
+    types: &'a AbiTypes<'ink>,
     function: hir::Function,
-) -> StructValue {
-    let name = function.name(db).to_string();
+) -> StructValue<'ink> {
+    let name = function.name(db.hir_db()).to_string();
 
-    let name_ir = intern_string(&module, &name, &name);
-    let _visibility = match function.visibility(db) {
+    let name_ir = intern_string(context, &module, &name, &name);
+    let _visibility = match function.visibility(db.hir_db()) {
         hir::Visibility::Public => 0,
         _ => 1,
     };
 
-    let fn_sig = function.ty(db).callable_sig(db).unwrap();
-    let ret_type_ir = gen_signature_return_type(db, module, types, fn_sig.ret().clone());
+    let fn_sig = function.ty(db.hir_db()).callable_sig(db.hir_db()).unwrap();
+    let ret_type_ir = gen_signature_return_type(context, db, module, types, fn_sig.ret().clone());
 
     let param_types: Vec<PointerValue> = fn_sig
         .params()
         .iter()
         .map(|ty| {
-            TypeTable::get(module, &db.type_info(ty.clone()))
+            TypeTable::get(module, &db.type_info(context, ty.clone()))
                 .unwrap()
                 .as_pointer_value()
         })
@@ -55,8 +57,7 @@ fn gen_prototype_from_function<D: IrDatabase>(
     let signature = types.function_signature_type.const_named_struct(&[
         param_types.into(),
         ret_type_ir.into(),
-        module
-            .get_context()
+        context
             .i16_type()
             .const_int(num_params as u64, false)
             .into(),
@@ -68,12 +69,14 @@ fn gen_prototype_from_function<D: IrDatabase>(
 }
 
 /// Construct a `MunFunctionPrototype` struct for the specified dispatch table function.
-fn gen_prototype_from_dispatch_entry(
-    module: &Module,
-    types: &AbiTypes,
+fn gen_prototype_from_dispatch_entry<'a, 'ink: 'a>(
+    context: &'ink Context,
+    module: &'a Module<'ink>,
+    types: &'a AbiTypes<'ink>,
     function: &DispatchableFunction,
-) -> StructValue {
+) -> StructValue<'ink> {
     let name_str = intern_string(
+        context,
         &module,
         &function.prototype.name,
         &format!("fn_sig::<{}>::name", function.prototype.name),
@@ -108,8 +111,7 @@ fn gen_prototype_from_dispatch_entry(
     let signature = types.function_signature_type.const_named_struct(&[
         param_types.into(),
         ret_type_ir.into(),
-        module
-            .get_context()
+        context
             .i16_type()
             .const_int(num_params as u64, false)
             .into(),
@@ -122,30 +124,31 @@ fn gen_prototype_from_dispatch_entry(
 
 /// Given a function, construct a pointer to a `MunTypeInfo` global that represents the return type
 /// of the function; or `null` if the return type is empty.
-fn gen_signature_return_type<D: IrDatabase>(
-    db: &D,
-    module: &Module,
-    types: &AbiTypes,
+fn gen_signature_return_type<'a, 'ink: 'a, D: hir::HirDatabase>(
+    context: &'ink Context,
+    db: &IrDatabase<D>,
+    module: &'a Module<'ink>,
+    types: &'a AbiTypes<'ink>,
     ret_type: Ty,
-) -> PointerValue {
+) -> PointerValue<'ink> {
     gen_signature_return_type_from_type_info(
         module,
         types,
         if ret_type.is_empty() {
             None
         } else {
-            Some(db.type_info(ret_type))
+            Some(db.type_info(context, ret_type))
         },
     )
 }
 
 /// Given a function, construct a pointer to a `MunTypeInfo` global that represents the return type
 /// of the function; or `null` if the return type is empty.
-fn gen_signature_return_type_from_type_info(
-    module: &Module,
-    types: &AbiTypes,
+fn gen_signature_return_type_from_type_info<'a, 'ink: 'a>(
+    module: &'a Module<'ink>,
+    types: &'a AbiTypes<'ink>,
     ret_type: Option<TypeInfo>,
-) -> PointerValue {
+) -> PointerValue<'ink> {
     if let Some(ret_type) = ret_type {
         TypeTable::get(module, &ret_type)
             .unwrap()
@@ -160,15 +163,16 @@ fn gen_signature_return_type_from_type_info(
 
 /// Construct a global that holds a reference to all functions. e.g.:
 /// MunFunctionDefinition[] definitions = { ... }
-fn get_function_definition_array<'a, D: IrDatabase>(
-    db: &D,
-    module: &Module,
-    types: &AbiTypes,
+fn get_function_definition_array<'a, 'ink: 'a, D: hir::HirDatabase>(
+    context: &'ink Context,
+    db: &IrDatabase<D>,
+    module: &'a Module<'ink>,
+    types: &'a AbiTypes<'ink>,
     functions: impl Iterator<Item = &'a hir::Function>,
-) -> GlobalValue {
+) -> GlobalValue<'ink> {
     let function_infos: Vec<StructValue> = functions
         .map(|f| {
-            let name = f.name(db).to_string();
+            let name = f.name(db.hir_db()).to_string();
             // Get the function from the cloned module and modify the linkage of the function.
             let value = module
                 // If a wrapper function exists, use that (required for struct types)
@@ -179,7 +183,7 @@ fn get_function_definition_array<'a, D: IrDatabase>(
             value.set_linkage(Linkage::Private);
 
             // Generate the signature from the function
-            let prototype = gen_prototype_from_function(db, module, types, *f);
+            let prototype = gen_prototype_from_function(context, db, module, types, *f);
 
             // Generate the function info value
             types.function_definition_type.const_named_struct(&[
@@ -196,16 +200,17 @@ fn get_function_definition_array<'a, D: IrDatabase>(
 /// ```c
 /// MunDispatchTable dispatchTable = { ... }
 /// ```
-fn gen_dispatch_table(
-    module: &Module,
-    types: &AbiTypes,
+fn gen_dispatch_table<'a, 'ink: 'a>(
+    context: &'ink Context,
+    module: &'a Module<'ink>,
+    types: &AbiTypes<'ink>,
     dispatch_table: &DispatchTable,
-) -> StructValue {
+) -> StructValue<'ink> {
     // Generate a vector with all the function signatures
     let signatures: Vec<StructValue> = dispatch_table
         .entries()
         .iter()
-        .map(|entry| gen_prototype_from_dispatch_entry(module, types, entry))
+        .map(|entry| gen_prototype_from_dispatch_entry(context, module, types, entry))
         .collect();
 
     // Construct an IR array from the signatures
@@ -225,8 +230,7 @@ fn gen_dispatch_table(
             // hardcoded the name here.
             module.get_global("dispatchTable").unwrap().as_pointer_value())
         .unwrap_or_else(|| {
-            module
-                .get_context()
+            context
                 .void_type()
                 .fn_type(&[], false)
                 .ptr_type(AddressSpace::Const)
@@ -237,8 +241,7 @@ fn gen_dispatch_table(
     types.dispatch_table_type.const_named_struct(&[
         signatures.as_pointer_value().into(),
         dispatch_table_ptr.into(),
-        module
-            .get_context()
+        context
             .i32_type()
             .const_int(dispatch_table.entries().len() as u64, false)
             .into(),
@@ -248,59 +251,59 @@ fn gen_dispatch_table(
 /// Constructs IR that exposes the types and symbols in the specified module. A function called
 /// `get_info` is constructed that returns a struct `MunAssemblyInfo`. See the `mun_abi` crate
 /// for the ABI that `get_info` exposes.
-pub(super) fn gen_reflection_ir(
-    db: &impl IrDatabase,
-    module: &Module,
+pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
+    context: &'ink Context,
+    db: &IrDatabase<D>,
+    module: &'a Module<'ink>,
     api: &HashSet<hir::Function>,
     dispatch_table: &DispatchTable,
-    type_table: &TypeTable,
+    type_table: &'b TypeTable<'ink>,
 ) {
     // Get all the types
-    let abi_types = gen_abi_types(&module.get_context());
+    let abi_types = gen_abi_types(context);
 
     let num_functions = api.len();
-    let function_info = get_function_definition_array(db, module, &abi_types, api.iter());
+    let function_info = get_function_definition_array(context, db, module, &abi_types, api.iter());
 
     let type_table_ir = if let Some(type_table) = module.get_global(TypeTable::NAME) {
         type_table.as_pointer_value()
     } else {
-        type_table.ty().ptr_type(AddressSpace::Const).const_null()
+        panic!();
+        // type_table.ty().ptr_type(AddressSpace::Const).const_null()
     };
 
     // Construct the module info struct
     let module_info = abi_types.module_info_type.const_named_struct(&[
-        intern_string(module, "", "module_info::path").into(),
+        intern_string(context, module, "", "module_info::path").into(),
         function_info.as_pointer_value().into(),
-        module
-            .get_context()
+        context
             .i32_type()
             .const_int(num_functions as u64, false)
             .into(),
         type_table_ir.into(),
-        module
-            .get_context()
+        context
             .i32_type()
             .const_int(type_table.num_types() as u64, false)
             .into(),
     ]);
 
     // Construct the dispatch table struct
-    let dispatch_table = gen_dispatch_table(module, &abi_types, dispatch_table);
+    let dispatch_table = gen_dispatch_table(context, module, &abi_types, dispatch_table);
 
     // Construct the actual `get_info` function
-    gen_get_info_fn(db, module, &abi_types, module_info, dispatch_table);
-    gen_set_allocator_handle_fn(db, module);
+    gen_get_info_fn(context, db, module, &abi_types, module_info, dispatch_table);
+    gen_set_allocator_handle_fn(context, db, module);
 }
 
 /// Construct the actual `get_info` function.
-fn gen_get_info_fn(
-    db: &impl IrDatabase,
-    module: &Module,
-    abi_types: &AbiTypes,
-    module_info: StructValue,
-    dispatch_table: StructValue,
+fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
+    context: &'ink Context,
+    db: &IrDatabase<D>,
+    module: &Module<'ink>,
+    abi_types: &AbiTypes<'ink>,
+    module_info: StructValue<'ink>,
+    dispatch_table: StructValue<'ink>,
 ) {
-    let context = module.get_context();
     let target = db.target();
     let str_type = context.i8_type().ptr_type(AddressSpace::Const);
 
@@ -337,9 +340,9 @@ fn gen_get_info_fn(
         );
     }
 
-    let builder = db.context().create_builder();
-    let body_ir = db.context().append_basic_block(&get_symbols_fn, "body");
-    builder.position_at_end(&body_ir);
+    let builder = context.create_builder();
+    let body_ir = context.append_basic_block(get_symbols_fn, "body");
+    builder.position_at_end(body_ir);
 
     // Get a pointer to the IR value that will hold the return value. Again this differs depending
     // on the C ABI.
@@ -353,11 +356,11 @@ fn gen_get_info_fn(
     };
 
     // Get access to the structs internals
-    let symbols_addr = unsafe { builder.build_struct_gep(result_ptr, 0, "symbols") };
-    let dispatch_table_addr = unsafe { builder.build_struct_gep(result_ptr, 1, "dispatch_table") };
-    let dependencies_addr = unsafe { builder.build_struct_gep(result_ptr, 2, "dependencies") };
+    let symbols_addr = { builder.build_struct_gep(result_ptr, 0, "symbols") }.unwrap();
+    let dispatch_table_addr = { builder.build_struct_gep(result_ptr, 1, "dispatch_table") }.unwrap();
+    let dependencies_addr = { builder.build_struct_gep(result_ptr, 2, "dependencies") }.unwrap();
     let num_dependencies_addr =
-        unsafe { builder.build_struct_gep(result_ptr, 3, "num_dependencies") };
+        { builder.build_struct_gep(result_ptr, 3, "num_dependencies") }.unwrap();
 
     // Assign the struct values one by one.
     builder.build_store(symbols_addr, module_info);
@@ -382,8 +385,7 @@ fn gen_get_info_fn(
     function::create_pass_manager(&module, db.optimization_lvl()).run_on(&get_symbols_fn);
 }
 
-fn gen_set_allocator_handle_fn(db: &impl IrDatabase, module: &Module) {
-    let context = module.get_context();
+fn gen_set_allocator_handle_fn<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &IrDatabase<D>, module: &Module<'ink>) {
     let allocator_handle_type = context.i8_type().ptr_type(AddressSpace::Generic);
 
     let set_allocator_handle_fn_type = context
@@ -396,11 +398,10 @@ fn gen_set_allocator_handle_fn(db: &impl IrDatabase, module: &Module) {
         Some(Linkage::DLLExport),
     );
 
-    let builder = db.context().create_builder();
-    let body_ir = db
-        .context()
-        .append_basic_block(&set_allocator_handle_fn, "body");
-    builder.position_at_end(&body_ir);
+    let builder = context.create_builder();
+    let body_ir = context
+        .append_basic_block(set_allocator_handle_fn, "body");
+    builder.position_at_end(body_ir);
 
     if let Some(allocator_handle_global) = module.get_global("allocatorHandle") {
         builder.build_store(

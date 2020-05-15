@@ -13,9 +13,9 @@ use std::sync::Arc;
     crate::HirDatabaseStorage
 )]
 #[derive(Default, Debug)]
-pub(crate) struct MockDatabase {
+pub struct MockDatabase {
     runtime: salsa::Runtime<MockDatabase>,
-    events: Mutex<Option<Vec<salsa::Event<MockDatabase>>>>,
+    pub events: Mutex<Option<Vec<salsa::Event<MockDatabase>>>>,
 }
 
 impl salsa::Database for MockDatabase {

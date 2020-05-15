@@ -31,8 +31,7 @@ mod ty;
 mod type_ref;
 mod utils;
 
-#[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 

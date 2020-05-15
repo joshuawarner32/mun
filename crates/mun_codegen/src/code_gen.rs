@@ -1,12 +1,12 @@
+use inkwell::context::Context;
 use crate::code_gen::linker::LinkerError;
 use crate::IrDatabase;
 use failure::Fail;
 use hir::{FileId, RelativePathBuf};
-use inkwell::targets::TargetData;
 use inkwell::{
     module::{Linkage, Module},
     passes::{PassManager, PassManagerBuilder},
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
+    targets::{TargetTriple, CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
     types::StructType,
     values::{BasicValue, GlobalValue, IntValue, PointerValue, UnnamedAddress},
     AddressSpace, OptimizationLevel,
@@ -90,37 +90,38 @@ impl ObjectFile {
 }
 
 /// A struct that can be used to build an LLVM `Module`.
-pub struct ModuleBuilder<'a, D: IrDatabase> {
-    db: &'a D,
+pub struct ModuleBuilder<'a, 'ink, D: hir::HirDatabase> {
+    context: &'ink Context,
+    db: &'a IrDatabase<D>,
     file_id: FileId,
     _target: inkwell::targets::Target,
     target_machine: inkwell::targets::TargetMachine,
-    assembly_module: Arc<inkwell::module::Module>,
+    assembly_module: Arc<inkwell::module::Module<'ink>>,
 }
 
-impl<'a, D: IrDatabase> ModuleBuilder<'a, D> {
+impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
     /// Constructs module for the given `hir::FileId` at the specified output file location.
-    pub fn new(db: &'a D, file_id: FileId) -> Result<Self, failure::Error> {
+    pub fn new(context: &'ink Context, db: &'a IrDatabase<D>, file_id: FileId) -> Result<Self, failure::Error> {
         let target = db.target();
 
         // Construct a module for the assembly
         let assembly_module = Arc::new(
-            db.context()
-                .create_module(db.file_relative_path(file_id).as_str()),
+            context.create_module(db.hir_db().file_relative_path(file_id).as_str()),
         );
 
         // Initialize the x86 target
         Target::initialize_x86(&InitializationConfig::default());
 
         // Retrieve the LLVM target using the specified target.
-        let llvm_target = Target::from_triple(&target.llvm_target)
+        let target_triple = TargetTriple::create(&target.llvm_target);
+        let llvm_target = Target::from_triple(&target_triple)
             .map_err(|e| CodeGenerationError::UnknownTargetTriple(e.to_string()))?;
-        assembly_module.set_target(&llvm_target);
+        assembly_module.set_triple(&target_triple);
 
         // Construct target machine for machine code generation
         let target_machine = llvm_target
             .create_target_machine(
-                &target.llvm_target,
+                &target_triple,
                 &target.options.cpu,
                 &target.options.features,
                 db.optimization_lvl(),
@@ -130,6 +131,7 @@ impl<'a, D: IrDatabase> ModuleBuilder<'a, D> {
             .ok_or(CodeGenerationError::CouldNotCreateTargetMachine)?;
 
         Ok(Self {
+            context,
             db,
             file_id,
             _target: llvm_target,
@@ -140,8 +142,8 @@ impl<'a, D: IrDatabase> ModuleBuilder<'a, D> {
 
     /// Constructs an object file.
     pub fn build(self) -> Result<ObjectFile, failure::Error> {
-        let group_ir = self.db.group_ir(self.file_id);
-        let file = self.db.file_ir(self.file_id);
+        let group_ir = self.db.group_ir(self.context, self.file_id);
+        let file = self.db.file_ir(self.context, self.file_id);
 
         // Clone the LLVM modules so that we can modify it without modifying the cached value.
         self.assembly_module
@@ -154,6 +156,7 @@ impl<'a, D: IrDatabase> ModuleBuilder<'a, D> {
 
         // Generate the `get_info` method.
         symbols::gen_reflection_ir(
+            self.context,
             self.db,
             &self.assembly_module,
             &file.api,
@@ -170,7 +173,7 @@ impl<'a, D: IrDatabase> ModuleBuilder<'a, D> {
         ObjectFile::new(
             &self.db.target(),
             &self.target_machine,
-            self.db.file_relative_path(self.file_id),
+            self.db.hir_db().file_relative_path(self.file_id),
             self.assembly_module,
         )
     }
@@ -193,7 +196,7 @@ fn assembly_output_path(src_path: &RelativePathBuf, out_dir: Option<&Path>) -> P
 
 /// Optimizes the specified LLVM `Module` using the default passes for the given
 /// `OptimizationLevel`.
-fn optimize_module(module: &Module, optimization_lvl: OptimizationLevel) {
+fn optimize_module<'ink>(module: &'ink Module, optimization_lvl: OptimizationLevel) {
     let pass_builder = PassManagerBuilder::create();
     pass_builder.set_optimization_level(optimization_lvl);
 
@@ -206,13 +209,13 @@ fn optimize_module(module: &Module, optimization_lvl: OptimizationLevel) {
 /// ```c
 /// const char[] GLOBAL_ = "str";
 /// ```
-pub(crate) fn intern_string(module: &Module, string: &str, name: &str) -> PointerValue {
-    let value = module.get_context().const_string(string, true);
+pub(crate) fn intern_string<'a, 'ink>(context: &'ink Context, module: &'a Module<'ink>, string: &str, name: &str) -> PointerValue<'ink> {
+    let value = context.const_string(string.as_bytes(), true);
     gen_global(module, &value, name).as_pointer_value()
 }
 
 /// Construct a global from the specified value
-pub(crate) fn gen_global(module: &Module, value: &dyn BasicValue, name: &str) -> GlobalValue {
+pub(crate) fn gen_global<'a, 'ink>(module: &'a Module<'ink>, value: &dyn BasicValue<'ink>, name: &str) -> GlobalValue<'ink> {
     let global = module.add_global(value.as_basic_value_enum().get_type(), None, name);
     global.set_linkage(Linkage::Private);
     global.set_constant(true);
@@ -222,19 +225,20 @@ pub(crate) fn gen_global(module: &Module, value: &dyn BasicValue, name: &str) ->
 }
 
 /// Generates a global array from the specified list of strings
-pub(crate) fn gen_string_array(
-    module: &Module,
+pub(crate) fn gen_string_array<'a, 'ink: 'a>(
+    context: &'ink Context,
+    module: &'a Module<'ink>,
     strings: impl Iterator<Item = String>,
     name: &str,
-) -> PointerValue {
-    let str_type = module.get_context().i8_type().ptr_type(AddressSpace::Const);
+) -> PointerValue<'ink> {
+    let str_type = context.i8_type().ptr_type(AddressSpace::Const);
 
     let mut strings = strings.peekable();
     if strings.peek().is_none() {
         str_type.ptr_type(AddressSpace::Const).const_null()
     } else {
         let strings = strings
-            .map(|s| intern_string(module, &s, name))
+            .map(|s| intern_string(context, module, &s, name))
             .collect::<Vec<PointerValue>>();
 
         let strings_ir = str_type.const_array(&strings);
@@ -243,12 +247,12 @@ pub(crate) fn gen_string_array(
 }
 
 /// Generates a global array from the specified list of struct pointers
-pub(crate) fn gen_struct_ptr_array(
-    module: &Module,
-    ir_type: StructType,
-    ptrs: &[PointerValue],
+pub(crate) fn gen_struct_ptr_array<'a, 'ink: 'a>(
+    module: &'a Module<'ink>,
+    ir_type: StructType<'ink>,
+    ptrs: &[PointerValue<'ink>],
     name: &str,
-) -> PointerValue {
+) -> PointerValue<'ink> {
     if ptrs.is_empty() {
         ir_type
             .ptr_type(AddressSpace::Const)
@@ -262,12 +266,13 @@ pub(crate) fn gen_struct_ptr_array(
 }
 
 /// Generates a global array from the specified list of integers
-pub(crate) fn gen_u16_array(
-    module: &Module,
+pub(crate) fn gen_u16_array<'a, 'ink: 'a>(
+    context: &'ink Context,
+    module: &'a Module<'ink>,
     integers: impl Iterator<Item = u64>,
     name: &str,
-) -> PointerValue {
-    let u16_type = module.get_context().i16_type();
+) -> PointerValue<'ink> {
+    let u16_type = context.i16_type();
 
     let mut integers = integers.peekable();
     if integers.peek().is_none() {
@@ -282,7 +287,3 @@ pub(crate) fn gen_u16_array(
     }
 }
 
-/// Create an inkwell TargetData from the target in the database
-pub(crate) fn target_data_query(db: &impl IrDatabase) -> Arc<TargetData> {
-    Arc::new(TargetData::create(&db.target().data_layout))
-}

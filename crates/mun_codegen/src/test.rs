@@ -1,6 +1,7 @@
-use crate::{mock::MockDatabase, IrDatabase, ModuleBuilder};
+use crate::mock::log_executed;
+use crate::{mock::single_file_mock_db, ModuleBuilder};
 use hir::{
-    diagnostics::DiagnosticSink, line_index::LineIndex, HirDatabase, Module, SourceDatabase,
+    diagnostics::DiagnosticSink, line_index::LineIndex, Module, SourceDatabase,
 };
 use inkwell::OptimizationLevel;
 use mun_target::spec::Target;
@@ -733,7 +734,7 @@ fn private_fn_only() {
 
 #[test]
 fn incremental_compilation() {
-    let (mut db, file_id) = MockDatabase::with_single_file(
+    let (mut db, file_id) = single_file_mock_db(
         r#"
         struct Foo(i32);
 
@@ -742,12 +743,13 @@ fn incremental_compilation() {
         }
         "#,
     );
+    let context = crate::Context::create();
     db.set_optimization_lvl(OptimizationLevel::Default);
     db.set_target(Target::host_target().unwrap());
 
     {
-        let events = db.log_executed(|| {
-            db.file_ir(file_id);
+        let events = log_executed(&db, || {
+            db.file_ir(&context, file_id);
         });
         assert!(
             format!("{:?}", events).contains("group_ir"),
@@ -760,8 +762,8 @@ fn incremental_compilation() {
     db.set_optimization_lvl(OptimizationLevel::Aggressive);
 
     {
-        let events = db.log_executed(|| {
-            db.file_ir(file_id);
+        let events = log_executed(&db, || {
+            db.file_ir(&context, file_id);
         });
         println!("events: {:?}", events);
         assert!(
@@ -835,11 +837,11 @@ fn test_snapshot_unoptimized(text: &str) {
 fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     let text = text.trim().replace("\n    ", "\n");
 
-    let (mut db, file_id) = MockDatabase::with_single_file(&text);
+    let (mut db, file_id) = single_file_mock_db(&text);
     db.set_optimization_lvl(opt);
     db.set_target(Target::host_target().unwrap());
 
-    let line_index: Arc<LineIndex> = db.line_index(file_id);
+    let line_index: Arc<LineIndex> = db.hir_db().line_index(file_id);
     let messages = RefCell::new(Vec::new());
     let mut sink = DiagnosticSink::new(|diag| {
         let line_col = line_index.line_col(diag.highlight_range().start());
@@ -850,12 +852,14 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
             diag.message()
         ));
     });
-    Module::from(file_id).diagnostics(&db, &mut sink);
+    Module::from(file_id).diagnostics(db.hir_db(), &mut sink);
     drop(sink);
     let messages = messages.into_inner();
 
+    let context = crate::Context::create();
+
     let module_builder =
-        ModuleBuilder::new(&db, file_id).expect("Failed to initialize module builder");
+        ModuleBuilder::new(&context, &db, file_id).expect("Failed to initialize module builder");
 
     // The thread is named after the test case, so we can use it to name our snapshots.
     let thread_name = std::thread::current()
@@ -868,7 +872,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.group_ir(file_id)
+            db.group_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()
@@ -880,7 +884,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.file_ir(file_id)
+            db.file_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()
