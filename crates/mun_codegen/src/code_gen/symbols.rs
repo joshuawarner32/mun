@@ -268,8 +268,7 @@ pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
     let type_table_ir = if let Some(type_table) = module.get_global(TypeTable::NAME) {
         type_table.as_pointer_value()
     } else {
-        panic!();
-        // type_table.ty().ptr_type(AddressSpace::Const).const_null()
+        type_table.ty().ptr_type(AddressSpace::Const).const_null()
     };
 
     // Construct the module info struct
