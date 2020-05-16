@@ -5,13 +5,14 @@ use util::*;
 
 #[test]
 fn hotreloadable() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
     pub fn main() -> i32 { 5 }
     ",
     );
     assert_invoke_eq!(i32, 5, driver, "main");
-    driver.update(
+    driver.update(&context,
         r"
     pub fn main() -> i32 { 10 }
     ",
@@ -21,7 +22,8 @@ fn hotreloadable() {
 
 #[test]
 fn hotreload_struct_decl() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct(gc) Args {
         n: i32,
@@ -37,7 +39,7 @@ fn hotreload_struct_decl() {
     }
     "#,
     );
-    driver.update(
+    driver.update(&context,
         r#"
     struct(gc) Args {
         n: i32,

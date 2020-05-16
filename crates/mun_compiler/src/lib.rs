@@ -15,6 +15,8 @@ pub use crate::driver::{Config, Driver};
 pub use annotate::{AnnotationBuilder, SliceBuilder, SnippetBuilder};
 pub use mun_codegen::OptimizationLevel;
 
+use mun_codegen::Context;
+
 use std::io::stderr;
 
 #[derive(Debug, Clone)]
@@ -58,11 +60,12 @@ impl CompilerOptions {
 }
 
 pub fn main(options: CompilerOptions) -> Result<Option<PathBuf>, failure::Error> {
+    let context = Context::create();
     let (mut driver, file_id) = Driver::with_file(options.config, options.input)?;
 
     if driver.emit_diagnostics(&mut stderr())? {
         Ok(None)
     } else {
-        driver.write_assembly(file_id).map(Some)
+        driver.write_assembly(&context, file_id).map(Some)
     }
 }

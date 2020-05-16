@@ -15,7 +15,7 @@ use inkwell::{
 
 /// Given a mun type, construct an LLVM IR type
 #[rustfmt::skip]
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, ty: Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &mut CodegenContext<'ink, D>, ty: Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
     match ty {
         Ty::Empty => AnyTypeEnum::StructType(context.struct_type(&[], false)),
         Ty::Apply(ApplicationTy { ctor, .. }) => match ctor {
@@ -58,7 +58,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &C
 }
 
 /// Returns the LLVM IR type of the specified float type
-fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, fty: FloatTy) -> FloatType<'ink> {
+fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<'ink, D>, fty: FloatTy) -> FloatType<'ink> {
     match fty.bitness.resolve(&db.hir_db().target_data_layout()) {
         FloatBitness::X64 => context.f64_type(),
         FloatBitness::X32 => context.f32_type(),
@@ -66,7 +66,7 @@ fn float_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &Codege
 }
 
 /// Returns the LLVM IR type of the specified int type
-fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, ity: IntTy) -> IntType<'ink> {
+fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<'ink, D>, ity: IntTy) -> IntType<'ink> {
     match ity.bitness.resolve(&db.hir_db().target_data_layout()) {
         IntBitness::X128 => context.i128_type(),
         IntBitness::X64 => context.i64_type(),
@@ -78,7 +78,7 @@ fn int_ty_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenC
 }
 
 /// Constructs the `TypeInfo` for the specified HIR type
-pub fn type_info_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, ty: Ty) -> TypeInfo {
+pub fn type_info_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &mut CodegenContext<'ink, D>, ty: Ty) -> TypeInfo {
     let target = db.target_data();
     match ty {
         Ty::Apply(ctor) => match ctor.ctor {

@@ -25,14 +25,12 @@ pub fn single_file_mock_db(text: &str) -> (CodegenContext<MockDatabase>, FileId)
     (CodegenContext::new(db), file_id)
 }
 
-pub fn log(db: &CodegenContext<MockDatabase>, f: impl FnOnce()) -> Vec<salsa::Event<MockDatabase>> {
+pub fn clear_events(db: &mut CodegenContext<MockDatabase>) {
     *db.hir_db().events.lock() = Some(Vec::new());
-    f();
-    db.hir_db().events.lock().take().unwrap()
 }
 
-pub fn log_executed(db: &CodegenContext<MockDatabase>, f: impl FnOnce()) -> Vec<String> {
-    let events = log(db, f);
+pub fn fetch_events(db: &mut CodegenContext<MockDatabase>) -> Vec<String> {
+    let events = db.hir_db().events.lock().take().unwrap();
     events
         .into_iter()
         .filter_map(|e| match e.kind {

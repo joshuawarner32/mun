@@ -30,7 +30,7 @@ pub struct FileGroupIR<'ink> {
 /// Generates IR that is shared among the group's files.
 /// TODO: Currently, a group always consists of a single file. Need to add support for multiple
 /// files using something like `FileGroupId`.
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &mut CodegenContext<'ink, D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
     let llvm_module = context.create_module("group_name");
 
     // Use a `BTreeMap` to guarantee deterministically ordered output.
@@ -70,12 +70,12 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &C
             if !f.data(db.hir_db()).visibility().is_private() && !f.is_extern(db.hir_db()) {
                 let body = f.body(db.hir_db());
                 let infer = f.infer(db.hir_db());
-                dispatch_table_builder.collect_body(&body, &infer);
+                dispatch_table_builder.collect_body(db, &body, &infer);
             }
         }
     }
 
-    let dispatch_table = dispatch_table_builder.build();
+    let dispatch_table = dispatch_table_builder.build(db);
 
     let abi_types = gen_abi_types(&context);
     let mut type_table_builder = TypeTableBuilder::new(
@@ -91,16 +91,16 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &C
     for def in db.hir_db().module_data(file_id).definitions() {
         match def {
             ModuleDef::Struct(s) => {
-                type_table_builder.collect_struct(*s);
+                type_table_builder.collect_struct(db, *s);
             }
             ModuleDef::Function(f) => {
-                type_table_builder.collect_fn(*f);
+                type_table_builder.collect_fn(db, *f);
             }
             ModuleDef::BuiltinType(_) => (),
         }
     }
 
-    let type_table = type_table_builder.build();
+    let type_table = type_table_builder.build(db);
 
     // Create the allocator handle global value
     let allocator_handle_type = if needs_alloc {

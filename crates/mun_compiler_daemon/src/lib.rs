@@ -20,11 +20,12 @@ pub fn main(options: CompilerOptions) -> Result<(), Error> {
     watcher.watch(&input_path, RecursiveMode::NonRecursive)?;
     println!("Watching: {}", input_path.display());
 
+    let context = mun_codegen::Context::create();
     let (mut driver, file_id) = Driver::with_file(options.config, options.input)?;
 
     // Compile at least once
     if !driver.emit_diagnostics(&mut stderr())? {
-        driver.write_assembly(file_id)?;
+        driver.write_assembly(&context, file_id)?;
     }
 
     loop {
@@ -34,7 +35,7 @@ pub fn main(options: CompilerOptions) -> Result<(), Error> {
                 let contents = std::fs::read_to_string(path)?;
                 driver.set_file_text(file_id, &contents);
                 if !driver.emit_diagnostics(&mut stderr())? {
-                    driver.write_assembly(file_id)?;
+                    driver.write_assembly(&context, file_id)?;
                     println!("Successfully compiled: {}", path.display())
                 }
             }

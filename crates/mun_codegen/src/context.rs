@@ -1,5 +1,7 @@
 #![allow(clippy::type_repetition_in_bounds)]
 
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use inkwell::context::Context;
 use mun_target::spec::Target;
 use mun_target::abi::TargetDataLayout;
@@ -16,16 +18,18 @@ use inkwell::{
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct CodegenContext<D: hir::HirDatabase> {
+pub struct CodegenContext<'ink, D: hir::HirDatabase> {
     optimization_lvl: OptimizationLevel,
     hir_db: D,
     target: Target,
     target_data: Arc<TargetData>,
     target_data_layout: TargetDataLayout,
+
+    struct_cache: HashMap<hir::Struct, (Vec<hir::Ty>, StructType<'ink>)>
 }
 
-impl<D: hir::HirDatabase> CodegenContext<D> {
-    pub fn new(hir_db: D) -> CodegenContext<D> {
+impl<'ink, D: hir::HirDatabase> CodegenContext<'ink, D> {
+    pub fn new(hir_db: D) -> CodegenContext<'ink, D> {
         let target = hir_db.target();
         let target_data_layout = hir_db.target_data_layout().as_ref().clone();
         CodegenContext {
@@ -34,6 +38,7 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
             target,
             target_data_layout,
             hir_db,
+            struct_cache: HashMap::new(),
         }
     }
 
@@ -65,24 +70,47 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
         &self.target_data_layout
     }
 
-    pub fn type_ir<'ink>(&self, context: &'ink Context, ty: hir::Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
+    pub fn type_ir(&mut self, context: &'ink Context, ty: hir::Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
         crate::ir::ty::ir_query(context, self, ty, params)
     }
 
-    pub fn struct_ty<'ink>(&self, context: &'ink Context, s: hir::Struct) -> StructType<'ink> {
+    pub fn struct_ty(&mut self, context: &'ink Context, s: hir::Struct) -> StructType<'ink> {
         let name = s.name(self.hir_db()).to_string();
-        context.opaque_struct_type(&name)
+
+        let fields = s.fields(self.hir_db());
+        let field_tys = fields
+            .iter()
+            .map(|f| f.ty(self.hir_db()))
+            .collect::<Vec<_>>();
+
+        match self.struct_cache.entry(s) {
+            Entry::Occupied(entry) => {
+                let value = entry.into_mut();
+                if value.0 == field_tys {
+                    value.1
+                } else {
+                    let ty = context.opaque_struct_type(&name);
+                    *value = (field_tys, ty);
+                    ty
+                }
+            }
+            Entry::Vacant(entry) => {
+                let ty = context.opaque_struct_type(&name);
+                entry.insert((field_tys, ty));
+                ty
+            }
+        }
     }
 
-    pub fn group_ir<'ink>(&self, context: &'ink Context, file: hir::FileId) -> Arc<FileGroupIR<'ink>> {
+    pub fn group_ir(&mut self, context: &'ink Context, file: hir::FileId) -> Arc<FileGroupIR<'ink>> {
         crate::ir::file_group::ir_query(context, self, file)
     }
 
-    pub fn file_ir<'ink>(&self, context: &'ink Context, file: hir::FileId) -> Arc<FileIR<'ink>> {
+    pub fn file_ir(&mut self, context: &'ink Context, file: hir::FileId) -> Arc<FileIR<'ink>> {
         crate::ir::file::ir_query(context, self, file)
     }
 
-    pub fn type_info<'ink>(&self, context: &'ink Context, ty: hir::Ty) -> TypeInfo {
+    pub fn type_info(&mut self, context: &'ink Context, ty: hir::Ty) -> TypeInfo {
         crate::ir::ty::type_info_query(context, self, ty)
     }
 }

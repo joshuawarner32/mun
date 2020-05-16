@@ -19,7 +19,7 @@ pub struct FileIR<'ink> {
 }
 
 /// Generates IR for the specified file.
-pub(crate) fn ir_query<'a, 'ink, D: hir::HirDatabase>(context: &'ink Context, db: &'a CodegenContext<D>, file_id: FileId) -> Arc<FileIR<'ink>> {
+pub(crate) fn ir_query<'a, 'ink, D: hir::HirDatabase>(context: &'ink Context, db: &'a mut CodegenContext<'ink, D>, file_id: FileId) -> Arc<FileIR<'ink>> {
     let llvm_module = context
         .create_module(db.hir_db().file_relative_path(file_id).as_str());
 

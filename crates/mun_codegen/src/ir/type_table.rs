@@ -82,9 +82,8 @@ impl<'ink> TypeTable<'ink> {
 }
 
 /// Used to build a `TypeTable` from HIR.
-pub(crate) struct TypeTableBuilder<'ink, 'a, D: hir::HirDatabase> {
+pub(crate) struct TypeTableBuilder<'ink, 'a> {
     context: &'ink Context,
-    db: &'a CodegenContext<D>,
     target_data: Arc<TargetData>,
     module: &'a Module<'ink>,
     abi_types: &'a AbiTypes<'ink>,
@@ -92,11 +91,11 @@ pub(crate) struct TypeTableBuilder<'ink, 'a, D: hir::HirDatabase> {
     entries: BTreeSet<TypeInfo>, // Use a `BTreeSet` to guarantee deterministically ordered output
 }
 
-impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
+impl<'a , 'ink: 'a> TypeTableBuilder<'ink, 'a> {
     /// Creates a new `TypeTableBuilder`.
-    pub(crate) fn new<'f>(
+    pub(crate) fn new<'f, D: hir::HirDatabase>(
         context: &'ink Context,
-        db: &'a CodegenContext<D>,
+        db: &mut CodegenContext<'ink, D>,
         module: &'a Module<'ink>,
         abi_types: &'a AbiTypes<'ink>,
         intrinsics: impl Iterator<Item = &'f FunctionPrototype>,
@@ -104,7 +103,6 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
     ) -> Self {
         let mut builder = Self {
             context,
-            db,
             target_data: db.target_data(),
             module,
             abi_types,
@@ -114,10 +112,10 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
 
         for prototype in intrinsics {
             for arg_type in prototype.arg_types.iter() {
-                builder.collect_type(arg_type.clone());
+                builder.collect_type(db, arg_type.clone());
             }
             if let Some(ret_type) = prototype.ret_type.as_ref() {
-                builder.collect_type(ret_type.clone());
+                builder.collect_type(db, ret_type.clone());
             }
         }
 
@@ -125,9 +123,9 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
     }
 
     /// Collects unique `TypeInfo` from the given `Ty`.
-    fn collect_type(&mut self, type_info: TypeInfo) {
+    fn collect_type<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, type_info: TypeInfo) {
         if let TypeGroup::StructTypes(hir_struct) = type_info.group {
-            self.collect_struct(hir_struct);
+            self.collect_struct(db, hir_struct);
         } else {
             self.entries.insert(type_info);
         }
@@ -144,42 +142,46 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
     }
 
     /// Collects unique `TypeInfo` from the specified function signature and body.
-    pub fn collect_fn(&mut self, hir_fn: hir::Function) {
+    pub fn collect_fn<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, hir_fn: hir::Function) {
         // Collect type info for exposed function
-        if !hir_fn.data(self.db.hir_db()).visibility().is_private() || self.dispatch_table.contains(hir_fn) {
-            let fn_sig = hir_fn.ty(self.db.hir_db()).callable_sig(self.db.hir_db()).unwrap();
+        if !hir_fn.data(db.hir_db()).visibility().is_private() || self.dispatch_table.contains(hir_fn) {
+            let fn_sig = hir_fn.ty(db.hir_db()).callable_sig(db.hir_db()).unwrap();
 
             // Collect argument types
             for ty in fn_sig.params().iter() {
-                self.collect_type(self.db.type_info(self.context, ty.clone()));
+                let ti = db.type_info(self.context, ty.clone());
+                self.collect_type(db, ti);
             }
 
             // Collect return type
             let ret_ty = fn_sig.ret();
             if !ret_ty.is_empty() {
-                self.collect_type(self.db.type_info(self.context, ret_ty.clone()));
+                let ti = db.type_info(self.context, ret_ty.clone());
+                self.collect_type(db, ti);
             }
         }
 
         // Collect used types from body
-        let body = hir_fn.body(self.db.hir_db());
-        let infer = hir_fn.infer(self.db.hir_db());
+        let body = hir_fn.body(db.hir_db());
+        let infer = hir_fn.infer(db.hir_db());
         self.collect_expr(body.body_expr(), &body, &infer);
     }
 
     /// Collects unique `TypeInfo` from the specified struct type.
-    pub fn collect_struct(&mut self, hir_struct: hir::Struct) {
-        let type_info = self.db.type_info(self.context, hir_struct.ty(self.db.hir_db()));
+    pub fn collect_struct<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, hir_struct: hir::Struct) {
+        let type_info = db.type_info(self.context, hir_struct.ty(db.hir_db()));
         self.entries.insert(type_info);
 
-        let fields = hir_struct.fields(self.db.hir_db());
+        let fields = hir_struct.fields(db.hir_db());
         for field in fields.into_iter() {
-            self.collect_type(self.db.type_info(self.context, field.ty(self.db.hir_db())));
+            let ti = db.type_info(self.context, field.ty(db.hir_db()));
+            self.collect_type(db, ti);
         }
     }
 
-    fn gen_type_info(
+    fn gen_type_info<D: hir::HirDatabase>(
         &self,
+        db: &mut CodegenContext<'ink, D>,
         type_info_to_ir: &mut HashMap<TypeInfo, GlobalValue<'ink>>,
         type_info: &TypeInfo,
     ) -> GlobalValue<'ink> {
@@ -213,7 +215,7 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
         let type_info_ir = match type_info.group {
             TypeGroup::FundamentalTypes => type_info_ir,
             TypeGroup::StructTypes(s) => {
-                let struct_info_ir = self.gen_struct_info(type_info_to_ir, s);
+                let struct_info_ir = self.gen_struct_info(db, type_info_to_ir, s);
                 self.context.const_struct(&[type_info_ir.into(), struct_info_ir.into()], false)
             }
         };
@@ -224,15 +226,16 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
         )
     }
 
-    fn gen_struct_info(
+    fn gen_struct_info<D: hir::HirDatabase>(
         &self,
+        db: &mut CodegenContext<'ink, D>,
         type_info_to_ir: &mut HashMap<TypeInfo, GlobalValue<'ink>>,
         hir_struct: hir::Struct,
     ) -> StructValue {
-        let name = hir_struct.name(self.db.hir_db()).to_string();
-        let fields = hir_struct.fields(self.db.hir_db());
+        let name = hir_struct.name(db.hir_db()).to_string();
+        let fields = hir_struct.fields(db.hir_db());
         println!("computed fields inside gen_struct_info: {}", fields.len());
-        let struct_ir = self.db.struct_ty(self.context, hir_struct);
+        let struct_ir = db.struct_ty(self.context, hir_struct);
 
         // This is because the struct is generated with opaque_struct_type
         println!("llvm ir has {} fields", struct_ir.count_fields());
@@ -240,17 +243,17 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
         let field_names = gen_string_array(
             &self.context,
             self.module,
-            fields.iter().map(|field| field.name(self.db.hir_db()).to_string()),
+            fields.iter().map(|field| field.name(db.hir_db()).to_string()),
             &format!("struct_info::<{}>::field_names", name),
         );
         let field_types: Vec<PointerValue> = fields
             .iter()
             .map(|field| {
-                let field_type_info = self.db.type_info(self.context, field.ty(self.db.hir_db()));
+                let field_type_info = db.type_info(self.context, field.ty(db.hir_db()));
                 if let Some(ir_value) = type_info_to_ir.get(&field_type_info) {
                     *ir_value
                 } else {
-                    let ir_value = self.gen_type_info(type_info_to_ir, &field_type_info);
+                    let ir_value = self.gen_type_info(db, type_info_to_ir, &field_type_info);
                     type_info_to_ir.insert(field_type_info, ir_value);
                     ir_value
                 }
@@ -286,13 +289,13 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
                 .into(),
             self.context
                 .i8_type()
-                .const_int(hir_struct.data(self.db.hir_db()).memory_kind.clone().into(), false)
+                .const_int(hir_struct.data(db.hir_db()).memory_kind.clone().into(), false)
                 .into(),
         ])
     }
 
     /// Constructs a `TypeTable` from all *used* types.
-    pub fn build(mut self) -> TypeTable<'ink> {
+    pub fn build<D: hir::HirDatabase>(mut self, db: &mut CodegenContext<'ink, D>) -> TypeTable<'ink> {
         let mut entries = BTreeSet::new();
         mem::swap(&mut entries, &mut self.entries);
 
@@ -314,7 +317,7 @@ impl<'a , 'ink: 'a, D: hir::HirDatabase> TypeTableBuilder<'ink, 'a, D> {
                 let ptr = if let Some(ir_value) = type_info_to_ir.get(&type_info) {
                     *ir_value
                 } else {
-                    let ir_value = self.gen_type_info(&mut type_info_to_ir, &type_info);
+                    let ir_value = self.gen_type_info(db, &mut type_info_to_ir, &type_info);
                     type_info_to_ir.insert(type_info.clone(), ir_value);
                     ir_value
                 }

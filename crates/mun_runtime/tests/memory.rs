@@ -7,7 +7,8 @@ use util::*;
 
 #[test]
 fn gc_trace() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub struct Foo {
         quz: f64,
@@ -42,7 +43,8 @@ fn gc_trace() {
 
 #[test]
 fn map_struct_insert_field1() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             b: i64,
@@ -59,7 +61,7 @@ fn map_struct_insert_field1() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             a: i64,
@@ -75,7 +77,8 @@ fn map_struct_insert_field1() {
 
 #[test]
 fn map_struct_insert_field2() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -92,7 +95,7 @@ fn map_struct_insert_field2() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             a: i64,
@@ -108,7 +111,8 @@ fn map_struct_insert_field2() {
 
 #[test]
 fn map_struct_insert_field3() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -125,7 +129,7 @@ fn map_struct_insert_field3() {
     let b = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             a: i64,
@@ -141,7 +145,8 @@ fn map_struct_insert_field3() {
 
 #[test]
 fn map_struct_remove_field1() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: f64,
@@ -160,7 +165,7 @@ fn map_struct_remove_field1() {
     let c = 5i64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             c: i64,
@@ -172,7 +177,8 @@ fn map_struct_remove_field1() {
 
 #[test]
 fn map_struct_remove_field2() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: f64,
@@ -191,7 +197,7 @@ fn map_struct_remove_field2() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             b: i64,
@@ -203,7 +209,8 @@ fn map_struct_remove_field2() {
 
 #[test]
 fn map_struct_remove_field3() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -222,7 +229,7 @@ fn map_struct_remove_field3() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             a: i64,
@@ -234,7 +241,8 @@ fn map_struct_remove_field3() {
 
 #[test]
 fn map_struct_cast_fields1() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo(
             u8,
@@ -257,7 +265,7 @@ fn map_struct_cast_fields1() {
     let e = 3.14f32;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c, d, e).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo(
             u16,
@@ -277,7 +285,8 @@ fn map_struct_cast_fields1() {
 
 #[test]
 fn map_struct_cast_fields2() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo(
             i16,
@@ -292,7 +301,7 @@ fn map_struct_cast_fields2() {
     let a = -2i16;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo(
             u16,    // Cannot convert from `i16` to `u16`
@@ -305,7 +314,8 @@ fn map_struct_cast_fields2() {
 
 #[test]
 fn map_struct_swap_fields1() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: f64,
@@ -324,7 +334,7 @@ fn map_struct_swap_fields1() {
     let c = 5.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             c: f64,
@@ -340,7 +350,8 @@ fn map_struct_swap_fields1() {
 
 #[test]
 fn map_struct_swap_fields2() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: f64,
@@ -361,7 +372,7 @@ fn map_struct_swap_fields2() {
     let d = 7i64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c, d).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             d: i64,
@@ -379,7 +390,8 @@ fn map_struct_swap_fields2() {
 
 #[test]
 fn map_struct_rename_field1() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -398,7 +410,7 @@ fn map_struct_rename_field1() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             a: i64,
@@ -414,7 +426,8 @@ fn map_struct_rename_field1() {
 
 #[test]
 fn map_struct_rename_field2() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -433,7 +446,7 @@ fn map_struct_rename_field2() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             d: i64,
@@ -449,7 +462,8 @@ fn map_struct_rename_field2() {
 
 #[test]
 fn map_struct_all() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i32,
@@ -470,7 +484,7 @@ fn map_struct_all() {
     let d = -1i32;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c, d).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Foo {
             b: f64, // move
@@ -489,7 +503,8 @@ fn map_struct_all() {
 
 #[test]
 fn delete_used_struct() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -508,7 +523,7 @@ fn delete_used_struct() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, b, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Bar(i64);
 
@@ -535,7 +550,8 @@ fn delete_used_struct() {
 
 #[test]
 fn nested_structs() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct(gc) GcStruct(f32, f32);
     struct(value) ValueStruct(f32, f32);
@@ -584,7 +600,7 @@ fn nested_structs() {
     .unwrap();
 
     // Tests mapping of `gc -> gc`, `value -> value`
-    driver.update(
+    driver.update(&context,
         r#"
     struct(gc) GcStruct(f64, f64);
     struct(value) ValueStruct(f64, f64);
@@ -611,7 +627,7 @@ fn nested_structs() {
     assert_eq!(value_1.get::<f64>("1"), Ok(b.into()));
 
     // Tests an identity mapping
-    driver.update(
+    driver.update(&context,
         r#"
     struct(gc) GcStruct(f64, f64);
     struct(value) ValueStruct(f64, f64);
@@ -638,7 +654,7 @@ fn nested_structs() {
     assert_eq!(value_1.get::<f64>("1"), Ok(b.into()));
 
     // Tests mapping of `gc -> value`, `value -> gc`
-    driver.update(
+    driver.update(&context,
         r#"
     struct(value) GcStruct(f64, f64);
     struct(gc) ValueStruct(f64, f64);
@@ -662,7 +678,7 @@ fn nested_structs() {
 
     // Tests mapping of different struct type, when `gc -> value`, `value -> gc`, and
     // retention of an old library (due to removal of `GcStruct` and `ValueStruct`)
-    driver.update(
+    driver.update(&context,
         r#"
     struct(gc) GcStruct2(f64);
     struct(value) ValueStruct2(f64);
@@ -703,7 +719,7 @@ fn nested_structs() {
     value_1.set::<f64>("0", a.into()).unwrap();
 
     // Tests mapping of different struct type, when `gc -> gc`, `value -> value`
-    driver.update(
+    driver.update(&context,
         r#"
     struct(gc) GcStruct(f64, f64);
     struct(value) ValueStruct(f64, f64);
@@ -739,7 +755,8 @@ fn nested_structs() {
 
 #[test]
 fn insert_struct() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct Foo {
             a: i64,
@@ -756,7 +773,7 @@ fn insert_struct() {
     let c = 3.0f64;
     let foo: StructRef = invoke_fn!(driver.runtime_mut(), "foo_new", a, c).unwrap();
 
-    driver.update(
+    driver.update(&context,
         r#"
         struct Bar(i64);
         struct(value) Baz(f64);

@@ -11,4 +11,5 @@ description = "Functionality for continuously monitoring Mun source files for ch
 [dependencies]
 failure = "0.1.7"
 mun_compiler = { path = "../mun_compiler" }
+mun_codegen = { path = "../mun_codegen" }
 notify = "4.0.12"

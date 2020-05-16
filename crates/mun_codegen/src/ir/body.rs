@@ -36,7 +36,7 @@ pub(crate) struct ExternalGlobals<'ink> {
 
 pub(crate) struct BodyIrGenerator<'ink, 'a, 'b, D: hir::HirDatabase> {
     context: &'ink Context,
-    db: &'a CodegenContext<D>,
+    db: &'a mut CodegenContext<'ink, D>,
     body: Arc<Body>,
     infer: Arc<InferenceResult>,
     builder: Builder<'ink>,
@@ -56,7 +56,7 @@ pub(crate) struct BodyIrGenerator<'ink, 'a, 'b, D: hir::HirDatabase> {
 impl<'ink, 'a, 'b, D: hir::HirDatabase> BodyIrGenerator<'ink, 'a, 'b, D> {
     pub fn new(
         context: &'ink Context,
-        db: &'a CodegenContext<D>,
+        db: &'a mut CodegenContext<'ink, D>,
         function: (hir::Function, FunctionValue<'ink>),
         function_map: &'a HashMap<hir::Function, FunctionValue<'ink>>,
         dispatch_table: &'b DispatchTable<'ink>,

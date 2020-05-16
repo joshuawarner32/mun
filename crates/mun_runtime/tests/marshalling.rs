@@ -9,7 +9,8 @@ use util::*;
 
 #[test]
 fn compile_and_run() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
         pub fn main() {}
     ",
@@ -19,7 +20,8 @@ fn compile_and_run() {
 
 #[test]
 fn return_value() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
         pub fn main()->i32 { 3 }
     ",
@@ -29,7 +31,8 @@ fn return_value() {
 
 #[test]
 fn arguments() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
         pub fn main(a:i32, b:i32)->i32 { a+b }
     ",
@@ -41,7 +44,8 @@ fn arguments() {
 
 #[test]
 fn dispatch_table() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
         pub fn add(a:i32, b:i32)->i32 { a+b }
         pub fn main(a:i32, b:i32)->i32 { add(a,b) }
@@ -59,7 +63,8 @@ fn dispatch_table() {
 
 #[test]
 fn booleans() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         pub fn equal(a:i64, b:i64)->bool                 { a==b }
         pub fn equalf(a:f64, b:f64)->bool            { a==b }
@@ -103,7 +108,8 @@ fn booleans() {
 
 #[test]
 fn fibonacci() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn fibonacci(n:i64)->i64 {
         if n <= 1 {
@@ -122,7 +128,8 @@ fn fibonacci() {
 
 #[test]
 fn fibonacci_loop() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn fibonacci(n:i64)->i64 {
         let a = 0;
@@ -149,7 +156,8 @@ fn fibonacci_loop() {
 
 #[test]
 fn fibonacci_loop_break() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn fibonacci(n:i64)->i64 {
         let a = 0;
@@ -176,7 +184,8 @@ fn fibonacci_loop_break() {
 
 #[test]
 fn fibonacci_while() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn fibonacci(n:i64)->i64 {
         let a = 0;
@@ -201,7 +210,8 @@ fn fibonacci_while() {
 
 #[test]
 fn true_is_true() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn test_true()->bool {
         true
@@ -221,7 +231,8 @@ fn compiler_valid_utf8() {
     use std::ffi::CStr;
     use std::slice;
 
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct Foo {
         a: i32,
@@ -268,7 +279,8 @@ fn compiler_valid_utf8() {
 
 #[test]
 fn fields() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
         struct(gc) Foo { a:i32, b:i32 };
         pub fn main(foo:i32)->bool {
@@ -285,7 +297,8 @@ fn fields() {
 
 #[test]
 fn field_crash() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct(gc) Foo { a: i32 };
 
@@ -300,7 +313,8 @@ fn field_crash() {
 
 #[test]
 fn marshal_struct() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct(value) Foo { a: i32, b: bool };
     struct Bar(i32, bool);
@@ -481,7 +495,8 @@ fn extern_fn() {
         a + b + 9
     }
 
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     extern fn add(a: i32, b: i32) -> i32;
     pub fn main() -> i32 {
@@ -496,7 +511,8 @@ fn extern_fn() {
 #[test]
 #[should_panic]
 fn extern_fn_missing() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     extern fn add(a: i32, b: i32) -> i32;
     pub fn main() -> i32 { add(3,4) }
@@ -511,7 +527,8 @@ fn extern_fn_invalid_signature() {
         0
     }
 
-    let result = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
     extern fn add(a: i32, b: i32) -> i32;
     pub fn main() -> i32 { add(3,4) }
@@ -520,7 +537,7 @@ fn extern_fn_invalid_signature() {
     .insert_fn("add", add_int as extern "C" fn() -> i32)
     .spawn();
 
-    assert!(result.is_err());
+    assert!(driver.is_err());
 }
 
 #[test]
@@ -530,7 +547,8 @@ fn extern_fn_invalid_sig() {
         3
     }
 
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     extern fn add(a: i32, b: i32) -> i32;
     pub fn main() -> i32 { add(3,4) }
@@ -542,7 +560,8 @@ fn extern_fn_invalid_sig() {
 
 #[test]
 fn test_primitive_types() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     struct Primitives {
         a:u8,
@@ -618,7 +637,8 @@ fn can_add_external_without_return() {
         println!("{}", a);
     }
 
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     extern fn foo(a: i32,);
     pub fn main(){ foo(3); }
@@ -630,7 +650,8 @@ fn can_add_external_without_return() {
 
 #[test]
 fn signed_and_unsigned_rem() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r#"
     pub fn signed() -> i32 {
         (0 - 2) % 5

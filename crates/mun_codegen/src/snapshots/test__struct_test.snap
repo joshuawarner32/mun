@@ -6,15 +6,15 @@ expression: "struct(value) Bar(f64, i32, bool, Foo);\nstruct(value) Foo { a: i32
 ; ModuleID = 'main.mun'
 source_filename = "main.mun"
 
-%DispatchTable = type { i8* addrspace(4)* (i8 addrspace(4)*, i8*)* }
-%struct.MunTypeInfo = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
+%DispatchTable.0 = type { i8* addrspace(4)* (i8 addrspace(4)*, i8*)* }
+%struct.MunTypeInfo.1 = type { [16 x i8], i8 addrspace(4)*, i32, i8, i8 }
 %Baz = type {}
 %Bar = type { double, i32, i1, %Foo }
 %Foo = type { i32 }
 
 @allocatorHandle = external global i8*
-@dispatchTable = external global %DispatchTable
-@global_type_table = external global [9 x %struct.MunTypeInfo addrspace(4)*]
+@dispatchTable = external global %DispatchTable.0
+@global_type_table = external global [9 x %struct.MunTypeInfo.1 addrspace(4)*]
 
 define void @foo() {
 body:

@@ -20,7 +20,7 @@ use std::collections::HashSet;
 /// Construct a `MunFunctionPrototype` struct for the specified HIR function.
 fn gen_prototype_from_function<'a, 'ink: 'a, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     function: hir::Function,
@@ -126,7 +126,7 @@ fn gen_prototype_from_dispatch_entry<'a, 'ink: 'a>(
 /// of the function; or `null` if the return type is empty.
 fn gen_signature_return_type<'a, 'ink: 'a, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     ret_type: Ty,
@@ -165,7 +165,7 @@ fn gen_signature_return_type_from_type_info<'a, 'ink: 'a>(
 /// MunFunctionDefinition[] definitions = { ... }
 fn get_function_definition_array<'a, 'ink: 'a, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     module: &'a Module<'ink>,
     types: &'a AbiTypes<'ink>,
     functions: impl Iterator<Item = &'a hir::Function>,
@@ -253,7 +253,7 @@ fn gen_dispatch_table<'a, 'ink: 'a>(
 /// for the ABI that `get_info` exposes.
 pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     module: &'a Module<'ink>,
     api: &HashSet<hir::Function>,
     dispatch_table: &DispatchTable,
@@ -298,7 +298,7 @@ pub(super) fn gen_reflection_ir<'a, 'ink, 'b, D: hir::HirDatabase>(
 /// Construct the actual `get_info` function.
 fn gen_get_info_fn<'a, 'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     module: &Module<'ink>,
     abi_types: &AbiTypes<'ink>,
     module_info: StructValue<'ink>,

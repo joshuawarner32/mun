@@ -1,6 +1,7 @@
 //! `Driver` is a stateful compiler frontend that enables incremental compilation by retaining state
 //! from previous compilation.
 
+use mun_codegen::Context;
 use crate::{db::CompilerDatabase, diagnostics::diagnostics, PathOrInline};
 use mun_codegen::{CodegenContext, ModuleBuilder};
 use mun_hir::{FileId, RelativePathBuf, SourceDatabase, SourceRoot, SourceRootId};
@@ -23,13 +24,13 @@ use annotate_snippets::{
 pub const WORKSPACE: SourceRootId = SourceRootId(0);
 
 #[derive(Debug)]
-pub struct Driver {
-    db: CodegenContext<CompilerDatabase>,
+pub struct Driver<'ink> {
+    db: CodegenContext<'ink, CompilerDatabase>,
     out_dir: Option<PathBuf>,
     display_color: DisplayColor,
 }
 
-impl Driver {
+impl<'ink> Driver<'ink> {
     /// Constructs a driver with a specific configuration.
     pub fn with_config(config: Config) -> Self {
         let mut driver = Driver {
@@ -52,7 +53,7 @@ impl Driver {
     pub fn with_file(
         config: Config,
         path: PathOrInline,
-    ) -> Result<(Driver, FileId), failure::Error> {
+    ) -> Result<(Driver<'ink>, FileId), failure::Error> {
         let mut driver = Driver::with_config(config);
 
         // Construct a SourceRoot
@@ -87,7 +88,7 @@ impl Driver {
     }
 }
 
-impl Driver {
+impl<'ink> Driver<'ink> {
     /// Sets the contents of a specific file.
     pub fn set_file_text<T: AsRef<str>>(&mut self, file_id: FileId, text: T) {
         self.db.hir_db_mut()
@@ -95,7 +96,7 @@ impl Driver {
     }
 }
 
-impl Driver {
+impl<'ink> Driver<'ink> {
     /// Returns a vector containing all the diagnostic messages for the project.
     pub fn diagnostics(&self) -> Vec<Snippet> {
         self.db.hir_db()
@@ -130,10 +131,10 @@ impl Driver {
     }
 }
 
-impl Driver {
+impl<'ink> Driver<'ink> {
     /// Generate an assembly for the given file
-    pub fn write_assembly(&mut self, file_id: FileId) -> Result<PathBuf, failure::Error> {
-        let module_builder = ModuleBuilder::new(&self.db, file_id)?;
+    pub fn write_assembly(&mut self, context: &'ink Context, file_id: FileId) -> Result<PathBuf, failure::Error> {
+        let module_builder = ModuleBuilder::new(context, &mut self.db, file_id)?;
         let obj_file = module_builder.build()?;
         obj_file.into_shared_object(self.out_dir.as_deref())
     }

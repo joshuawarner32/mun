@@ -75,7 +75,7 @@ impl<'ink> DispatchTable<'ink> {
     /// struct
     pub fn gen_function_lookup<D: hir::HirDatabase>(
         &self,
-        db: &CodegenContext<D>,
+        db: &CodegenContext<'ink, D>,
         table_ref: Option<inkwell::values::GlobalValue<'ink>>,
         builder: &inkwell::builder::Builder<'ink>,
         function: hir::Function,
@@ -149,9 +149,8 @@ impl<'ink> DispatchTable<'ink> {
 }
 
 /// A struct that can be used to build the dispatch table from HIR.
-pub(crate) struct DispatchTableBuilder<'ink, 'a, D: hir::HirDatabase> {
+pub(crate) struct DispatchTableBuilder<'ink, 'a> {
     context: &'ink Context,
-    db: &'a CodegenContext<D>,
     // The module in which all values live
     module: &'a Module<'ink>,
     // The target for which to create the dispatch table
@@ -173,19 +172,18 @@ struct TypedDispatchableFunction<'ink> {
     ir_type: FunctionType<'ink>,
 }
 
-impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
+impl<'ink, 'a> DispatchTableBuilder<'ink, 'a> {
     /// Creates a new builder that can generate a dispatch function.
-    pub fn new(
+    pub fn new<D: hir::HirDatabase>(
         context: &'ink Context,
-        db: &'a CodegenContext<D>,
+        db: &mut CodegenContext<'ink, D>,
         module: &'a Module<'ink>,
         intrinsics: &BTreeMap<FunctionPrototype, FunctionType<'ink>>,
     ) -> Self {
         let mut table = DispatchTableBuilder {
             context,
-            db,
-            module,
             target: db.target_data(),
+            module,
             function_to_idx: Default::default(),
             prototype_to_idx: Default::default(),
             entries: Default::default(),
@@ -224,34 +222,33 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
     }
 
     /// Collects call expression from the given expression and sub expressions.
-    fn collect_expr(&mut self, expr_id: ExprId, body: &Arc<Body>, infer: &InferenceResult) {
+    fn collect_expr<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, expr_id: ExprId, body: &Arc<Body>, infer: &InferenceResult) {
         let expr = &body[expr_id];
 
         // If this expression is a call, store it in the dispatch table
         if let Expr::Call { callee, .. } = expr {
             match infer[*callee].as_callable_def() {
-                Some(hir::CallableDef::Function(def)) => self.collect_fn_def(def),
+                Some(hir::CallableDef::Function(def)) => self.collect_fn_def(db, def),
                 Some(hir::CallableDef::Struct(_)) => (),
                 None => panic!("expected a callable expression"),
             }
         }
 
         // Recurse further
-        expr.walk_child_exprs(|expr_id| self.collect_expr(expr_id, body, infer))
+        expr.walk_child_exprs(|expr_id| self.collect_expr(db, expr_id, body, infer))
     }
 
     /// Collects function call expression from the given expression.
     #[allow(clippy::map_entry)]
-    fn collect_fn_def(&mut self, function: hir::Function) {
+    fn collect_fn_def<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, function: hir::Function) {
         self.ensure_table_ref();
 
         // If the function is not yet contained in the table, add it
         if !self.function_to_idx.contains_key(&function) {
-            let name = function.name(self.db.hir_db()).to_string();
-            let hir_type = function.ty(self.db.hir_db());
-            let sig = hir_type.callable_sig(self.db.hir_db()).unwrap();
-            let ir_type = self
-                .db
+            let name = function.name(db.hir_db()).to_string();
+            let hir_type = function.ty(db.hir_db());
+            let sig = hir_type.callable_sig(db.hir_db()).unwrap();
+            let ir_type = db
                 .type_ir(
                     self.context,
                     hir_type,
@@ -263,10 +260,10 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
             let arg_types = sig
                 .params()
                 .iter()
-                .map(|arg| self.db.type_info(self.context, arg.clone()))
+                .map(|arg| db.type_info(self.context, arg.clone()))
                 .collect();
             let ret_type = if !sig.ret().is_empty() {
-                Some(self.db.type_info(self.context, sig.ret().clone()))
+                Some(db.type_info(self.context, sig.ret().clone()))
             } else {
                 None
             };
@@ -291,14 +288,14 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
 
     /// Collect all the call expressions from the specified body with the given type inference
     /// result.
-    pub fn collect_body(&mut self, body: &Arc<Body>, infer: &InferenceResult) {
-        self.collect_expr(body.body_expr(), body, infer);
+    pub fn collect_body<D: hir::HirDatabase>(&mut self, db: &mut CodegenContext<'ink, D>, body: &Arc<Body>, infer: &InferenceResult) {
+        self.collect_expr(db, body.body_expr(), body, infer);
     }
 
     /// Builds the final DispatchTable with all *called* functions from within the module
     /// # Parameters
     /// * **functions**: Mapping of *defined* Mun functions to their respective IR values.
-    pub fn build(self) -> DispatchTable<'ink> {
+    pub fn build<D: hir::HirDatabase>(self, db: &mut CodegenContext<'ink, D>) -> DispatchTable<'ink> {
         // Construct the table body from all the entries in the dispatch table
         let table_body: Vec<BasicTypeEnum> = self
             .entries
@@ -322,11 +319,11 @@ impl<'ink, 'a, D: hir::HirDatabase> DispatchTableBuilder<'ink, 'a, D> {
                     match entry.function.hir {
                         // Case external function: Convert to typed null for the given function
                         None => function_type.const_null(),
-                        Some(f) if f.is_extern(self.db.hir_db()) => function_type.const_null(),
+                        Some(f) if f.is_extern(db.hir_db()) => function_type.const_null(),
                         // Case mun function: Get the function location as the initializer
                         Some(f) => function::gen_signature(
                             self.context,
-                            self.db,
+                            db,
                             f,
                             self.module,
                             CodeGenParams {

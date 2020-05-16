@@ -1,5 +1,6 @@
 #![allow(dead_code, unused_macros)]
 
+use codegen::Context;
 use mun_compiler::{Config, DisplayColor, Driver, FileId, PathOrInline, RelativePathBuf};
 use mun_runtime::{IntoFunctionDefinition, Runtime, RuntimeBuilder};
 use std::io::Cursor;
@@ -7,11 +8,11 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc, thread::sleep, time::Duration};
 
 /// Implements a compiler and runtime in one that can invoke functions. Use of the TestDriver
 /// enables quick testing of Mun constructs in the runtime with hot-reloading support.
-pub(crate) struct TestDriver {
+pub(crate) struct TestDriver<'a> {
     _temp_dir: tempfile::TempDir,
     out_path: PathBuf,
     file_id: FileId,
-    driver: Driver,
+    driver: Driver<'a>,
     runtime: RuntimeOrBuilder,
 }
 
@@ -34,9 +35,9 @@ impl RuntimeOrBuilder {
     }
 }
 
-impl TestDriver {
+impl<'a> TestDriver<'a> {
     /// Construct a new TestDriver from a single Mun source
-    pub fn new(text: &str) -> Self {
+    pub fn new(context: &'a Context, text: &str) -> Self {
         let temp_dir = tempfile::TempDir::new().unwrap();
         let config = Config {
             out_dir: Some(temp_dir.path().to_path_buf()),
@@ -59,7 +60,7 @@ impl TestDriver {
                     .expect("compiler errors are not UTF-8 formatted")
             )
         }
-        let out_path = driver.write_assembly(file_id).unwrap();
+        let out_path = driver.write_assembly(context, file_id).unwrap();
         let builder = RuntimeBuilder::new(&out_path);
         TestDriver {
             _temp_dir: temp_dir,
@@ -76,7 +77,7 @@ impl TestDriver {
     }
 
     /// Updates the text of the Mun source and ensures that the generated assembly has been reloaded.
-    pub fn update(&mut self, text: &str) {
+    pub fn update(&mut self, context: &'a Context, text: &str) {
         self.runtime_mut(); // Ensures that the runtime is spawned prior to the update
         self.driver.set_file_text(self.file_id, text);
         let mut compiler_errors: Vec<u8> = Vec::new();
@@ -91,7 +92,7 @@ impl TestDriver {
                     .expect("compiler errors are not UTF-8 formatted")
             )
         }
-        let out_path = self.driver.write_assembly(self.file_id).unwrap();
+        let out_path = self.driver.write_assembly(context, self.file_id).unwrap();
         assert_eq!(
             &out_path, &self.out_path,
             "recompiling did not result in the same assembly"

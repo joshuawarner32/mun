@@ -5,7 +5,8 @@ use util::*;
 
 #[test]
 fn error_assembly_not_linkable() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
     extern fn dependency() -> i32;
     
@@ -27,7 +28,8 @@ fn error_assembly_not_linkable() {
 
 #[test]
 fn arg_missing_bug() {
-    let mut driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let mut driver = TestDriver::new(&context,
         r"
     pub fn fibonacci_n() -> i64 {
         let n = arg();

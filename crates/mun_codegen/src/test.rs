@@ -1,4 +1,4 @@
-use crate::mock::log_executed;
+use crate::mock::{clear_events, fetch_events};
 use crate::{mock::single_file_mock_db, ModuleBuilder};
 use hir::{
     diagnostics::DiagnosticSink, line_index::LineIndex, Module, SourceDatabase,
@@ -749,9 +749,9 @@ fn incremental_compilation() {
     db.set_optimization_lvl(OptimizationLevel::Default);
 
     {
-        let events = log_executed(&db, || {
-            db.file_ir(&context, file_id);
-        });
+        clear_events(&mut db);
+        db.file_ir(&context, file_id);
+        let events = fetch_events(&mut db);
         assert!(
             format!("{:?}", events).contains("group_ir"),
             "{:#?}",
@@ -763,9 +763,9 @@ fn incremental_compilation() {
     db.set_optimization_lvl(OptimizationLevel::Aggressive);
 
     {
-        let events = log_executed(&db, || {
-            db.file_ir(&context, file_id);
-        });
+        clear_events(&mut db);
+        db.file_ir(&context, file_id);
+        let events = fetch_events(&mut db);
         println!("events: {:?}", events);
         assert!(
             !format!("{:?}", events).contains("group_ir"),
@@ -860,7 +860,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     let context = Context::create();
 
     let module_builder =
-        ModuleBuilder::new(&context, &db, file_id).expect("Failed to initialize module builder");
+        ModuleBuilder::new(&context, &mut db, file_id).expect("Failed to initialize module builder");
 
     // The thread is named after the test case, so we can use it to name our snapshots.
     let thread_name = std::thread::current()
@@ -873,7 +873,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.group_ir(&context, file_id)
+            module_builder.db.group_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()
@@ -885,7 +885,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.file_ir(&context, file_id)
+            module_builder.db.file_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()

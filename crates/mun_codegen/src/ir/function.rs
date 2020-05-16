@@ -29,7 +29,7 @@ pub(crate) fn create_pass_manager<'ink>(
 /// allows bodies to reference `FunctionValue` wherever they are declared in the file.
 pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
+    db: &mut CodegenContext<'ink, D>,
     f: hir::Function,
     module: &Module<'ink>,
     params: CodeGenParams,
@@ -53,12 +53,12 @@ pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
 /// Generates the body of a `hir::Function` for an associated `FunctionValue`.
 pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
-    function: (hir::Function, FunctionValue),
-    llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
-    dispatch_table: &'b DispatchTable,
-    type_table: &'b TypeTable,
-    external_globals: ExternalGlobals,
+    db: &mut CodegenContext<'ink, D>,
+    function: (hir::Function, FunctionValue<'ink>),
+    llvm_functions: &'a HashMap<hir::Function, FunctionValue<'ink>>,
+    dispatch_table: &'b DispatchTable<'ink>,
+    type_table: &'b TypeTable<'ink>,
+    external_globals: ExternalGlobals<'ink>,
 ) {
     let mut code_gen = BodyIrGenerator::new(
         context,
@@ -80,12 +80,12 @@ pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
 /// `FunctionValue`
 pub(crate) fn gen_wrapper_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     context: &'ink Context,
-    db: &CodegenContext<D>,
-    function: (hir::Function, FunctionValue),
-    llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
-    dispatch_table: &'b DispatchTable,
-    type_table: &'b TypeTable,
-    external_globals: ExternalGlobals,
+    db: &mut CodegenContext<'ink, D>,
+    function: (hir::Function, FunctionValue<'ink>),
+    llvm_functions: &'a HashMap<hir::Function, FunctionValue<'ink>>,
+    dispatch_table: &'b DispatchTable<'ink>,
+    type_table: &'b TypeTable<'ink>,
+    external_globals: ExternalGlobals<'ink>,
 ) {
     let mut code_gen = BodyIrGenerator::new(
         context,

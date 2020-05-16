@@ -92,7 +92,7 @@ impl ObjectFile {
 /// A struct that can be used to build an LLVM `Module`.
 pub struct ModuleBuilder<'a, 'ink, D: hir::HirDatabase> {
     context: &'ink Context,
-    db: &'a CodegenContext<D>,
+    pub(crate) db: &'a mut CodegenContext<'ink, D>,
     file_id: FileId,
     _target: inkwell::targets::Target,
     target_machine: inkwell::targets::TargetMachine,
@@ -101,7 +101,7 @@ pub struct ModuleBuilder<'a, 'ink, D: hir::HirDatabase> {
 
 impl<'a, 'ink, D: hir::HirDatabase> ModuleBuilder<'a, 'ink, D> {
     /// Constructs module for the given `hir::FileId` at the specified output file location.
-    pub fn new(context: &'ink Context, db: &'a CodegenContext<D>, file_id: FileId) -> Result<Self, failure::Error> {
+    pub fn new(context: &'ink Context, db: &'a mut CodegenContext<'ink, D>, file_id: FileId) -> Result<Self, failure::Error> {
         let target = db.hir_db().target();
 
         // Construct a module for the assembly

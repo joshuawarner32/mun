@@ -19,7 +19,7 @@ struct TestDriver {
 
 impl TestDriver {
     /// Constructs a new `TestDriver` from Mun source
-    fn new(text: &str) -> Self {
+    fn new(context: &codegen::Context, text: &str) -> Self {
         let temp_dir = tempfile::TempDir::new().unwrap();
         let config = Config {
             out_dir: Some(temp_dir.path().to_path_buf()),
@@ -33,7 +33,7 @@ impl TestDriver {
         if driver.emit_diagnostics(&mut stderr()).unwrap() {
             panic!("compiler errors..")
         }
-        let out_path = driver.write_assembly(file_id).unwrap();
+        let out_path = driver.write_assembly(context, file_id).unwrap();
         let runtime = make_runtime(&out_path);
         TestDriver {
             _temp_dir: temp_dir,
@@ -160,7 +160,8 @@ fn test_runtime_create_invalid_handle() {
 
 #[test]
 fn test_runtime_get_function_info_invalid_fn_name() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -186,7 +187,8 @@ fn test_runtime_get_function_info_invalid_fn_name() {
 
 #[test]
 fn test_runtime_get_function_info_invalid_fn_name_encoding() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -213,7 +215,8 @@ fn test_runtime_get_function_info_invalid_fn_name_encoding() {
 
 #[test]
 fn test_runtime_get_function_info_invalid_has_fn_info() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -240,7 +243,8 @@ fn test_runtime_get_function_info_invalid_has_fn_info() {
 
 #[test]
 fn test_runtime_get_function_info_invalid_fn_info() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -268,7 +272,8 @@ fn test_runtime_get_function_info_invalid_fn_info() {
 
 #[test]
 fn test_runtime_get_function_info() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -292,7 +297,8 @@ fn test_runtime_get_function_info() {
 
 #[test]
 fn test_runtime_update_invalid_updated() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -311,7 +317,8 @@ fn test_runtime_update_invalid_updated() {
 
 #[test]
 fn test_runtime_update() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         pub fn main() -> i32 { 3 }
     "#,
@@ -324,7 +331,8 @@ fn test_runtime_update() {
 
 #[test]
 fn test_gc_alloc_invalid_obj() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 
@@ -362,7 +370,8 @@ fn test_gc_alloc_invalid_obj() {
 
 #[test]
 fn test_gc_alloc() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 
@@ -402,7 +411,8 @@ fn test_gc_alloc() {
 
 #[test]
 fn test_gc_ptr_type_invalid_type_info() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 
@@ -426,7 +436,8 @@ fn test_gc_ptr_type_invalid_type_info() {
 
 #[test]
 fn test_gc_ptr_type() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 
@@ -473,7 +484,8 @@ fn test_gc_ptr_type() {
 
 #[test]
 fn test_gc_rooting() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 
@@ -525,7 +537,8 @@ fn test_gc_rooting() {
 
 #[test]
 fn test_gc_ptr_collect_invalid_reclaimed() {
-    let driver = TestDriver::new(
+    let context = codegen::Context::create();
+    let driver = TestDriver::new(&context,
         r#"
         struct Foo;
 

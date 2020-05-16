@@ -17,6 +17,7 @@ failure = "0.1.7"
 lazy_static = "1.4.0"
 abi = { path = "../mun_abi", package = "mun_abi" }
 memory = { path = "../mun_memory", package = "mun_memory" }
+codegen = { path = "../mun_codegen", package = "mun_codegen" }
 runtime = { path = "../mun_runtime", package = "mun_runtime" }
 parking_lot = "0.10"
 rand = "0.7.2"
