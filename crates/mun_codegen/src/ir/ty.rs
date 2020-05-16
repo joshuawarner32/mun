@@ -76,24 +76,6 @@ fn int_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, ity: Int
     }
 }
 
-/// Returns the LLVM IR type of the specified struct
-pub fn struct_ty_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, s: hir::Struct) -> StructType<'ink> {
-    let name = s.name(db.hir_db()).to_string();
-    let fields = s.fields(db.hir_db());
-    println!("computed fields inside struct_ty_query: {}", fields.len());
-    for field in fields {
-        // Ensure that salsa's cached value incorporates the struct fields
-        let _field_type_ir = db.type_ir(
-            field.ty(db.hir_db()),
-            CodeGenParams {
-                make_marshallable: false,
-            },
-        );
-    }
-
-    db.context.opaque_struct_type(&name)
-}
-
 /// Constructs the `TypeInfo` for the specified HIR type
 pub fn type_info_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, ty: Ty) -> TypeInfo {
     let target = db.target_data();

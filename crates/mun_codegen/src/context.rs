@@ -71,9 +71,20 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
     }
 
     pub fn struct_ty<'ink>(&'ink self, s: hir::Struct) -> StructType<'ink> {
+        let name = s.name(self.hir_db()).to_string();
         let fields = s.fields(self.hir_db());
-        println!("computed fields inside struct_ty: {}", fields.len());
-        crate::ir::ty::struct_ty_query(self, s)
+        println!("computed fields inside struct_ty_query: {}", fields.len());
+        for field in fields {
+            // Ensure that salsa's cached value incorporates the struct fields
+            let _field_type_ir = self.type_ir(
+                field.ty(self.hir_db()),
+                CodeGenParams {
+                    make_marshallable: false,
+                },
+            );
+        }
+
+        self.context.opaque_struct_type(&name)
     }
 
     pub fn group_ir<'ink>(&'ink self, file: hir::FileId) -> Arc<FileGroupIR<'ink>> {
