@@ -4,6 +4,7 @@ use hir::{
     diagnostics::DiagnosticSink, line_index::LineIndex, Module, SourceDatabase,
 };
 use inkwell::OptimizationLevel;
+use inkwell::context::Context;
 use mun_target::spec::Target;
 use hir::HirDatabase;
 use std::cell::RefCell;
@@ -735,6 +736,7 @@ fn private_fn_only() {
 
 #[test]
 fn incremental_compilation() {
+    let context = Context::create();
     let (mut db, file_id) = single_file_mock_db(
         r#"
         struct Foo(i32);
@@ -748,7 +750,7 @@ fn incremental_compilation() {
 
     {
         let events = log_executed(&db, || {
-            db.file_ir(file_id);
+            db.file_ir(&context, file_id);
         });
         assert!(
             format!("{:?}", events).contains("group_ir"),
@@ -762,7 +764,7 @@ fn incremental_compilation() {
 
     {
         let events = log_executed(&db, || {
-            db.file_ir(file_id);
+            db.file_ir(&context, file_id);
         });
         println!("events: {:?}", events);
         assert!(
@@ -855,8 +857,10 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     drop(sink);
     let messages = messages.into_inner();
 
+    let context = Context::create();
+
     let module_builder =
-        ModuleBuilder::new(&db, file_id).expect("Failed to initialize module builder");
+        ModuleBuilder::new(&context, &db, file_id).expect("Failed to initialize module builder");
 
     // The thread is named after the test case, so we can use it to name our snapshots.
     let thread_name = std::thread::current()
@@ -869,7 +873,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.group_ir(file_id)
+            db.group_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()
@@ -881,7 +885,7 @@ fn test_snapshot_with_optimization(text: &str, opt: OptimizationLevel) {
     } else {
         format!(
             "{}",
-            db.file_ir(file_id)
+            db.file_ir(&context, file_id)
                 .llvm_module
                 .print_to_string()
                 .to_string()

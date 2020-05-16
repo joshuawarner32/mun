@@ -1,3 +1,4 @@
+use inkwell::context::Context;
 use super::body::ExternalGlobals;
 use crate::ir::{function, type_table::TypeTable};
 use crate::{CodeGenParams, CodegenContext};
@@ -18,11 +19,11 @@ pub struct FileIR<'ink> {
 }
 
 /// Generates IR for the specified file.
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, file_id: FileId) -> Arc<FileIR<'ink>> {
-    let llvm_module = db.context
+pub(crate) fn ir_query<'a, 'ink, D: hir::HirDatabase>(context: &'ink Context, db: &'a CodegenContext<D>, file_id: FileId) -> Arc<FileIR<'ink>> {
+    let llvm_module = context
         .create_module(db.hir_db().file_relative_path(file_id).as_str());
 
-    let group_ir = db.group_ir(file_id);
+    let group_ir = db.group_ir(context, file_id);
 
     // Generate all exposed function and wrapper function signatures.
     // Use a `BTreeMap` to guarantee deterministically ordered output.ures
@@ -32,6 +33,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
         if let ModuleDef::Function(f) = def {
             if !f.is_extern(db.hir_db()) {
                 let fun = function::gen_signature(
+                    context,
                     db,
                     *f,
                     &llvm_module,
@@ -44,6 +46,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
                 let fn_sig = f.ty(db.hir_db()).callable_sig(db.hir_db()).unwrap();
                 if !f.data(db.hir_db()).visibility().is_private() && !fn_sig.marshallable(db.hir_db()) {
                     let wrapper_fun = function::gen_signature(
+                        context,
                         db,
                         *f,
                         &llvm_module,
@@ -83,6 +86,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
     // Generate the function bodies
     for (hir_function, llvm_function) in functions.iter() {
         function::gen_body(
+            context,
             db,
             (*hir_function, *llvm_function),
             &functions,
@@ -95,6 +99,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
 
     for (hir_function, llvm_function) in wrapper_functions.iter() {
         function::gen_wrapper_body(
+            context,
             db,
             (*hir_function, *llvm_function),
             &functions,

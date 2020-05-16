@@ -1,3 +1,4 @@
+use inkwell::context::Context;
 use crate::CodegenContext;
 use super::{
     abi_types::{gen_abi_types, AbiTypes},
@@ -29,8 +30,8 @@ pub struct FileGroupIR<'ink> {
 /// Generates IR that is shared among the group's files.
 /// TODO: Currently, a group always consists of a single file. Need to add support for multiple
 /// files using something like `FileGroupId`.
-pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
-    let llvm_module = db.context.create_module("group_name");
+pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(context: &'ink Context, db: &CodegenContext<D>, file_id: hir::FileId) -> Arc<FileGroupIR<'ink>> {
+    let llvm_module = context.create_module("group_name");
 
     // Use a `BTreeMap` to guarantee deterministically ordered output.
     let mut intrinsics_map = BTreeMap::new();
@@ -41,6 +42,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
         match def {
             ModuleDef::Function(f) if !f.is_extern(db.hir_db()) => {
                 intrinsics::collect_fn_body(
+                    context,
                     db,
                     &mut intrinsics_map,
                     &mut needs_alloc,
@@ -50,19 +52,19 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
 
                 let fn_sig = f.ty(db.hir_db()).callable_sig(db.hir_db()).unwrap();
                 if !f.data(db.hir_db()).visibility().is_private() && !fn_sig.marshallable(db.hir_db()) {
-                    intrinsics::collect_wrapper_body(db, &mut intrinsics_map, &mut needs_alloc);
+                    intrinsics::collect_wrapper_body(context, db, &mut intrinsics_map, &mut needs_alloc);
                 }
             }
             ModuleDef::Function(_) => (), // TODO: Extern types?
             ModuleDef::Struct(s) => {
-                adt::gen_struct_decl(db, *s);
+                adt::gen_struct_decl(context, db, *s);
             }
             ModuleDef::BuiltinType(_) => (),
         }
     }
 
     // Collect all exposed functions' bodies.
-    let mut dispatch_table_builder = DispatchTableBuilder::new(db, &llvm_module, &intrinsics_map);
+    let mut dispatch_table_builder = DispatchTableBuilder::new(context, db, &llvm_module, &intrinsics_map);
     for def in db.hir_db().module_data(file_id).definitions() {
         if let ModuleDef::Function(f) = def {
             if !f.data(db.hir_db()).visibility().is_private() && !f.is_extern(db.hir_db()) {
@@ -75,8 +77,9 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
 
     let dispatch_table = dispatch_table_builder.build();
 
-    let abi_types = gen_abi_types(&db.context);
+    let abi_types = gen_abi_types(&context);
     let mut type_table_builder = TypeTableBuilder::new(
+        context,
         db,
         &llvm_module,
         &abi_types,
@@ -101,7 +104,7 @@ pub(crate) fn ir_query<'ink, D: hir::HirDatabase>(db: &'ink CodegenContext<D>, f
 
     // Create the allocator handle global value
     let allocator_handle_type = if needs_alloc {
-        let allocator_handle_type = db.context.i8_type().ptr_type(AddressSpace::Generic);
+        let allocator_handle_type = context.i8_type().ptr_type(AddressSpace::Generic);
         let global = llvm_module.add_global(allocator_handle_type, None, "allocatorHandle");
         global.set_initializer(&allocator_handle_type.const_null());
         global.set_unnamed_address(UnnamedAddress::Global);

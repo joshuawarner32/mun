@@ -1,11 +1,12 @@
 #![allow(clippy::type_repetition_in_bounds)]
 
+use inkwell::context::Context;
 use mun_target::spec::Target;
 use mun_target::abi::TargetDataLayout;
 use crate::{
     ir::{file::FileIR, file_group::FileGroupIR},
     type_info::TypeInfo,
-    CodeGenParams, Context,
+    CodeGenParams,
 };
 use inkwell::{
     targets::TargetData,
@@ -16,7 +17,6 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct CodegenContext<D: hir::HirDatabase> {
-    pub(crate) context: Context,
     optimization_lvl: OptimizationLevel,
     hir_db: D,
     target: Target,
@@ -29,7 +29,6 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
         let target = hir_db.target();
         let target_data_layout = hir_db.target_data_layout().as_ref().clone();
         CodegenContext {
-            context: Context::create(),
             optimization_lvl: OptimizationLevel::None,
             target_data: Arc::new(TargetData::create(&target.data_layout)),
             target,
@@ -66,37 +65,25 @@ impl<D: hir::HirDatabase> CodegenContext<D> {
         &self.target_data_layout
     }
 
-    pub fn type_ir<'ink>(&'ink self, ty: hir::Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
-        crate::ir::ty::ir_query(self, ty, params)
+    pub fn type_ir<'ink>(&self, context: &'ink Context, ty: hir::Ty, params: CodeGenParams) -> AnyTypeEnum<'ink> {
+        crate::ir::ty::ir_query(context, self, ty, params)
     }
 
-    pub fn struct_ty<'ink>(&'ink self, s: hir::Struct) -> StructType<'ink> {
+    pub fn struct_ty<'ink>(&self, context: &'ink Context, s: hir::Struct) -> StructType<'ink> {
         let name = s.name(self.hir_db()).to_string();
-        let fields = s.fields(self.hir_db());
-        println!("computed fields inside struct_ty_query: {}", fields.len());
-        for field in fields {
-            // Ensure that salsa's cached value incorporates the struct fields
-            let _field_type_ir = self.type_ir(
-                field.ty(self.hir_db()),
-                CodeGenParams {
-                    make_marshallable: false,
-                },
-            );
-        }
-
-        self.context.opaque_struct_type(&name)
+        context.opaque_struct_type(&name)
     }
 
-    pub fn group_ir<'ink>(&'ink self, file: hir::FileId) -> Arc<FileGroupIR<'ink>> {
-        crate::ir::file_group::ir_query(self, file)
+    pub fn group_ir<'ink>(&self, context: &'ink Context, file: hir::FileId) -> Arc<FileGroupIR<'ink>> {
+        crate::ir::file_group::ir_query(context, self, file)
     }
 
-    pub fn file_ir<'ink>(&'ink self, file: hir::FileId) -> Arc<FileIR<'ink>> {
-        crate::ir::file::ir_query(self, file)
+    pub fn file_ir<'ink>(&self, context: &'ink Context, file: hir::FileId) -> Arc<FileIR<'ink>> {
+        crate::ir::file::ir_query(context, self, file)
     }
 
-    pub fn type_info<'ink>(&'ink self, ty: hir::Ty) -> TypeInfo {
-        crate::ir::ty::type_info_query(self, ty)
+    pub fn type_info<'ink>(&self, context: &'ink Context, ty: hir::Ty) -> TypeInfo {
+        crate::ir::ty::type_info_query(context, self, ty)
     }
 }
 

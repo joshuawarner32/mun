@@ -1,3 +1,4 @@
+use inkwell::context::Context;
 use crate::ir::{body::BodyIrGenerator, dispatch_table::DispatchTable, type_table::TypeTable};
 use crate::values::FunctionValue;
 use crate::{CodeGenParams, CodegenContext, Module, OptimizationLevel};
@@ -27,7 +28,8 @@ pub(crate) fn create_pass_manager<'ink>(
 /// between two functions is that first all signatures are generated and then all bodies. This
 /// allows bodies to reference `FunctionValue` wherever they are declared in the file.
 pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     f: hir::Function,
     module: &Module<'ink>,
     params: CodeGenParams,
@@ -41,7 +43,7 @@ pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
         }
     };
 
-    if let AnyTypeEnum::FunctionType(ty) = db.type_ir(f.ty(db.hir_db()), params) {
+    if let AnyTypeEnum::FunctionType(ty) = db.type_ir(context, f.ty(db.hir_db()), params) {
         module.add_function(&name, ty, None)
     } else {
         panic!("not a function type")
@@ -50,7 +52,8 @@ pub(crate) fn gen_signature<'ink, D: hir::HirDatabase>(
 
 /// Generates the body of a `hir::Function` for an associated `FunctionValue`.
 pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     function: (hir::Function, FunctionValue),
     llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
     dispatch_table: &'b DispatchTable,
@@ -58,6 +61,7 @@ pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     external_globals: ExternalGlobals,
 ) {
     let mut code_gen = BodyIrGenerator::new(
+        context,
         db,
         function,
         llvm_functions,
@@ -75,7 +79,8 @@ pub(crate) fn gen_body<'ink, 'a, 'b, D: hir::HirDatabase>(
 /// Generates the body of a wrapper around `hir::Function` for its associated
 /// `FunctionValue`
 pub(crate) fn gen_wrapper_body<'ink, 'a, 'b, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     function: (hir::Function, FunctionValue),
     llvm_functions: &'a HashMap<hir::Function, FunctionValue>,
     dispatch_table: &'b DispatchTable,
@@ -83,6 +88,7 @@ pub(crate) fn gen_wrapper_body<'ink, 'a, 'b, D: hir::HirDatabase>(
     external_globals: ExternalGlobals,
 ) {
     let mut code_gen = BodyIrGenerator::new(
+        context,
         db,
         function,
         llvm_functions,

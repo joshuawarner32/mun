@@ -1,3 +1,4 @@
+use inkwell::context::Context;
 use crate::intrinsics::{self, Intrinsic};
 use crate::ir::dispatch_table::FunctionPrototype;
 use crate::CodegenContext;
@@ -10,19 +11,21 @@ use std::sync::Arc;
 pub type IntrinsicsMap<'ink> = BTreeMap<FunctionPrototype, FunctionType<'ink>>;
 
 fn collect_intrinsic<'ink, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     intrinsic: &impl Intrinsic,
 ) {
     let target = db.target_data();
-    let prototype = intrinsic.prototype(&db.context, target.as_ref());
+    let prototype = intrinsic.prototype(&context, target.as_ref());
     entries
         .entry(prototype)
-        .or_insert_with(|| intrinsic.ir_type(&db.context, target.as_ref()));
+        .or_insert_with(|| intrinsic.ir_type(&context, target.as_ref()));
 }
 
 fn collect_expr<'ink, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
     expr_id: ExprId,
@@ -35,7 +38,7 @@ fn collect_expr<'ink, D: hir::HirDatabase>(
     if let Expr::Call { callee, .. } = expr {
         match infer[*callee].as_callable_def() {
             Some(hir::CallableDef::Struct(_)) => {
-                collect_intrinsic(db, entries, &intrinsics::new);
+                collect_intrinsic(context, db, entries, &intrinsics::new);
                 // self.collect_intrinsic(module, entries, &intrinsics::drop);
                 *needs_alloc = true;
             }
@@ -45,7 +48,7 @@ fn collect_expr<'ink, D: hir::HirDatabase>(
     }
 
     if let Expr::RecordLit { .. } = expr {
-        collect_intrinsic(db, entries, &intrinsics::new);
+        collect_intrinsic(context, db, entries, &intrinsics::new);
         // self.collect_intrinsic(module, entries, &intrinsics::drop);
         *needs_alloc = true;
     }
@@ -58,32 +61,34 @@ fn collect_expr<'ink, D: hir::HirDatabase>(
             .expect("unknown path");
 
         if let hir::Resolution::Def(hir::ModuleDef::Struct(_)) = resolution {
-            collect_intrinsic(db, entries, &intrinsics::new);
+            collect_intrinsic(context, db, entries, &intrinsics::new);
             // self.collect_intrinsic( module, entries, &intrinsics::drop);
             *needs_alloc = true;
         }
     }
 
     // Recurse further
-    expr.walk_child_exprs(|expr_id| collect_expr(db, entries, needs_alloc, expr_id, body, infer))
+    expr.walk_child_exprs(|expr_id| collect_expr(context, db, entries, needs_alloc, expr_id, body, infer))
 }
 
 pub fn collect_fn_body<'ink, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
     body: &Arc<Body>,
     infer: &InferenceResult,
 ) {
-    collect_expr(db, entries, needs_alloc, body.body_expr(), body, infer);
+    collect_expr(context, db, entries, needs_alloc, body.body_expr(), body, infer);
 }
 
 pub fn collect_wrapper_body<'ink, D: hir::HirDatabase>(
-    db: &'ink CodegenContext<D>,
+    context: &'ink Context,
+    db: &CodegenContext<D>,
     entries: &mut IntrinsicsMap<'ink>,
     needs_alloc: &mut bool,
 ) {
-    collect_intrinsic(db, entries, &intrinsics::new);
+    collect_intrinsic(context, db, entries, &intrinsics::new);
     // self.collect_intrinsic(entries, &intrinsics::drop, module);
     *needs_alloc = true;
 }
